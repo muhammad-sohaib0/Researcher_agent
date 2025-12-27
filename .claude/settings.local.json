@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(uv sync:*)",
+      "Bash(.venv/Scripts/python:*)",
+      "Bash(../.venv/Scripts/python:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(uv pip install:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(pip install:*)",
+      "WebSearch",
+      "Bash(tasklist /FI \"IMAGENAME eq python.exe\" /FO TABLE)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "WebFetch(domain:console.groq.com)",
+      "Bash(dir:*)",
+      "Bash(.venvScriptspython -c \"import agents; print\\(agents.__file__\\); help\\(agents\\)\")"
+    ]
+  }
+}
