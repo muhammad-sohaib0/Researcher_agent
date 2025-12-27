@@ -69,6 +69,15 @@ semantic_scholar_search = agent_main.semantic_scholar_search
 google_scholar_search = agent_main.google_scholar_search
 batch_download_pdfs = agent_main.batch_download_pdfs
 
+# NEW RESEARCH TOOLS
+smart_summarize_paper = agent_main.smart_summarize_paper
+generate_citation = agent_main.generate_citation
+compare_papers = agent_main.compare_papers
+write_literature_review = agent_main.write_literature_review
+refine_research_question = agent_main.refine_research_question
+extract_paper_metadata = agent_main.extract_paper_metadata
+write_section = agent_main.write_section
+
 # Create a simple delete function without the problematic parameter
 from agents import function_tool
 from pathlib import Path
@@ -182,6 +191,44 @@ JUST return the extracted text as-is.""",
         tools=[read_pdf, read_word, read_pptx, read_folder, list_files_in_folder, extract_text_from_audio, read_image]
     )
 
+    # NEW: Research Analysis Agent
+    research_analyst = Agent(
+        name="Research Analyst",
+        instructions="""You are a Research Analysis Expert. You help researchers with:
+
+1. PAPER SUMMARIZATION - Use smart_summarize_paper tool
+   - Types: "comprehensive", "abstract", "key_points", "methodology", "beginner"
+   - Example: smart_summarize_paper(paper_content="...", summary_type="comprehensive")
+
+2. CITATION GENERATION - Use generate_citation tool
+   - Styles: "bibtex", "apa", "mla", "harvard", "chicago", "ieee", "all"
+   - Example: generate_citation(paper_content="...", citation_style="apa")
+
+3. PAPER COMPARISON - Use compare_papers tool
+   - Input: Multiple papers separated by "---PAPER---"
+   - Example: compare_papers(papers_content="Paper1... ---PAPER--- Paper2...")
+
+4. LITERATURE REVIEW - Use write_literature_review tool
+   - Styles: "academic", "concise", "detailed"
+   - Example: write_literature_review(papers_content="...", topic="AI in healthcare", style="academic")
+
+5. RESEARCH QUESTION REFINEMENT - Use refine_research_question tool
+   - Example: refine_research_question(topic="impact of social media on teens", context="psychology PhD")
+
+6. METADATA EXTRACTION - Use extract_paper_metadata tool
+   - Example: extract_paper_metadata(paper_content="...")
+
+7. SECTION WRITING - Use write_section tool
+   - Sections: "abstract", "introduction", "related_work", "methodology", "results", "discussion", "conclusion"
+   - Example: write_section(content="...", section_type="introduction", style="academic")
+
+ALWAYS use the appropriate tool. Never make up information.""",
+        handoff_description="Analyzes papers, generates citations, compares research, writes literature reviews.",
+        model=model_output_generator,  # GEMINI_API_KEY_4
+        tools=[smart_summarize_paper, generate_citation, compare_papers, write_literature_review,
+               refine_research_question, extract_paper_metadata, write_section]
+    )
+
     output_generator = Agent(
         name="Output Generator",
         instructions="""You convert text to files (audio/PDF/Word/PowerPoint). You MUST call a tool for EVERY request.
@@ -229,52 +276,56 @@ RULES:
 
     head_agent = Agent(
         name="Research Assistant",
-        instructions="""You are a Research Assistant AI that helps with research papers.
+        instructions="""You are a Research Assistant AI that helps researchers with papers, analysis, and writing.
 
 TASK ROUTING:
 
 1. PERSONAL QUESTIONS (answer directly):
    - "who are you?", "what do you do?"
-   - Answer: "I am a Research Assistant that can download papers, read documents, create audio/PDF/Word/PowerPoint, and provide answers with citations."
+   - Answer: "I am a Research Assistant that helps with: downloading papers, reading documents, summarizing research, generating citations, comparing papers, writing literature reviews, and creating Word/PDF/PowerPoint/Audio outputs."
 
 2. FILE CONVERSION (use output_generator_agent):
-   When user wants to convert text to audio/PDF/Word/PowerPoint:
-   - Detect: "Convert this to an audio file", "Convert this to a PDF", "Convert this to a Word document", "Convert this to a PowerPoint"
-   - Action: Call output_generator_agent with the FULL message including format type and text content
-   - The sub-agent will create the file and return [FILE] and [DOWNLOAD_LINK] tags
-   - Copy these tags EXACTLY in your response
+   - "Convert to audio/PDF/Word/PowerPoint"
+   - Pass the FULL message with format type and content
+   - Copy [FILE] and [DOWNLOAD_LINK] tags EXACTLY
 
 3. RESEARCH QUESTIONS (use web_research_agent):
    - "what is machine learning?", "explain neural networks"
-   - Call web_research_agent → downloads papers → returns answer with citations
+   - Downloads papers, returns answer with citations
 
 4. USER UPLOADED FILE (use file_reader_agent):
-   - User attached PDF/Word/Image/PowerPoint/Audio
-   - Call file_reader_agent with the file path
+   - PDF/Word/Image/PowerPoint/Audio files
+   - Returns extracted text
 
-HOW TO CALL output_generator_agent:
-Pass the COMPLETE conversion request as input:
+5. PAPER ANALYSIS (use research_analyst_agent):
+   - "summarize this paper" → smart summarization
+   - "generate citation" or "cite this" → BibTeX/APA/MLA citations
+   - "compare these papers" → agreements, disagreements, gaps
+   - "write literature review" → synthesized review with citations
+   - "help me with research question" → refine topic into clear RQs
+   - "extract metadata" → structured paper info
+   - "write introduction/methodology/etc" → section drafts
+   - "explain like I'm a beginner" → simple explanation
+
+ANALYSIS TASK EXAMPLES:
+- "Summarize this paper" → research_analyst_agent with paper content
+- "Generate APA citation" → research_analyst_agent
+- "Compare paper1 and paper2" → research_analyst_agent
+- "Write a literature review on AI" → research_analyst_agent
+- "Help me refine: impact of social media" → research_analyst_agent
+- "Write an introduction section" → research_analyst_agent
+
+WORKFLOW FOR PAPER ANALYSIS:
+1. If paper content needed → First use file_reader_agent to get text
+2. Then pass text to research_analyst_agent for analysis
+
+FILE CONVERSION FORMAT:
 - Audio: "Convert this to an audio file and give me download link:\n\n[text]"
 - PDF: "Convert this to a PDF and give me download link:\n\n[text]"
 - Word: "Convert this to a Word document and give me download link:\n\n[text]"
 - PowerPoint: "Convert this to a PowerPoint and give me download link:\n\n[text]"
 
-The agent returns [FILE] and [DOWNLOAD_LINK] tags - copy them EXACTLY to your response.
-
-EXAMPLES:
-User: "who are you?"
-→ Direct answer
-
-User: "Convert this to an audio file and give me download link:\n\nHello world"
-→ Call output_generator_agent with full message
-→ Response includes: "[FILE]: output.wav\n[DOWNLOAD_LINK]: /api/files/download/output.wav"
-
-User: "Convert this to a PowerPoint and give me download link:\n\nMachine learning..."
-→ Call output_generator_agent with full message
-→ Response includes: "[FILE]: output.pptx\n[DOWNLOAD_LINK]: /api/files/download/output.pptx"
-
-User: "what is deep learning?"
-→ Call web_research_agent""",
+IMPORTANT: Always copy [FILE] and [DOWNLOAD_LINK] tags exactly from sub-agent responses.""",
         model=model_head_agent,  # GEMINI_API_KEY_1
         tools=[
             web_researcher.as_tool(
@@ -284,6 +335,10 @@ User: "what is deep learning?"
             reader.as_tool(
                 tool_name="file_reader_agent",
                 tool_description="Reads PDF/Word/Image/PowerPoint/Audio files. Returns extracted text."
+            ),
+            research_analyst.as_tool(
+                tool_name="research_analyst_agent",
+                tool_description="Analyzes papers: summarization (comprehensive/abstract/key_points/methodology/beginner), citations (bibtex/apa/mla/harvard/chicago/ieee), compare papers, write literature reviews, refine research questions, extract metadata, write sections (abstract/introduction/methodology/results/discussion/conclusion)."
             ),
             output_generator.as_tool(
                 tool_name="output_generator_agent",

@@ -1,6 +1,6 @@
 # Research Agent - AI-Powered Research Assistant
 
-A multi-agent AI system that can download research papers, read documents, and generate professional outputs (PDF, Word, PowerPoint, Audio).
+A comprehensive multi-agent AI system designed for researchers. Download papers, analyze research, generate citations, write literature reviews, and create professional outputs.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
@@ -17,7 +17,32 @@ A multi-agent AI system that can download research papers, read documents, and g
 | **Head Agent** | Routes tasks to specialized agents | All sub-agents |
 | **Web Researcher** | Downloads research papers from Google Scholar & Semantic Scholar | `semantic_scholar_search`, `google_scholar_search`, `download_pdf`, `batch_download_pdfs` |
 | **Document Reader** | Reads PDF, Word, PowerPoint, Images, Audio files | `read_pdf`, `read_word`, `read_pptx`, `read_image`, `extract_text_from_audio` |
+| **Research Analyst** | Analyzes papers, generates citations, compares research | `smart_summarize_paper`, `generate_citation`, `compare_papers`, `write_literature_review`, `refine_research_question`, `write_section` |
 | **Output Generator** | Creates Word, PDF, PowerPoint, Audio files | `create_word_file`, `create_pdf`, `create_pptx`, `voice_output` |
+
+### Research Analysis (NEW!)
+- **Smart Summarization** - Multiple types:
+  - Comprehensive (full analysis)
+  - Abstract (2-3 sentences)
+  - Key Points (bullet points)
+  - Methodology (research methods focus)
+  - Beginner-friendly (simple explanation)
+- **Citation Generator** - Multiple formats:
+  - BibTeX, APA, MLA, Harvard, Chicago, IEEE
+- **Paper Comparison** - Analyze multiple papers:
+  - Agreements & disagreements
+  - Methodological differences
+  - Research gaps
+- **Literature Review Writer** - Auto-generate reviews:
+  - Academic, concise, or detailed style
+  - Proper citations included
+- **Research Question Refiner** - Turn vague ideas into:
+  - Clear research questions
+  - Hypotheses
+  - Variables & methodology suggestions
+- **Section Writer** - Draft paper sections:
+  - Abstract, Introduction, Methodology
+  - Results, Discussion, Conclusion
 
 ### Document Reading
 - **PDF** - Extract text with page numbers
@@ -226,6 +251,17 @@ Researcher_agent/
 | `read_image` | OCR using Groq Llama Vision |
 | `extract_text_from_audio` | Transcribe audio using Groq Whisper |
 | `read_folder` | Read all documents in a folder |
+
+### Analysis Tools (NEW!)
+| Tool | Description |
+|------|-------------|
+| `smart_summarize_paper` | Generate summaries (comprehensive/abstract/key_points/methodology/beginner) |
+| `generate_citation` | Create citations (BibTeX/APA/MLA/Harvard/Chicago/IEEE) |
+| `compare_papers` | Compare multiple papers, find agreements/disagreements/gaps |
+| `write_literature_review` | Generate literature review with proper citations |
+| `refine_research_question` | Turn vague topics into clear research questions |
+| `extract_paper_metadata` | Extract title, authors, abstract, keywords, etc. |
+| `write_section` | Draft paper sections (abstract/intro/methodology/results/discussion/conclusion) |
 
 ### Output Tools
 | Tool | Description |

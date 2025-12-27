@@ -1663,6 +1663,797 @@ def delete_pdf(file_path: str) -> str:
         print(f"Error details: {error_details}")
         return f"[ERROR] Error deleting file: {str(e)}"
 
+
+# ============================================================================
+# RESEARCH ASSISTANT TOOLS - Advanced Features for Researchers
+# ============================================================================
+
+@function_tool
+def smart_summarize_paper(paper_content: str, summary_type: str = "comprehensive") -> str:
+    """
+    Generate intelligent summaries of research papers with multiple summary types.
+
+    Args:
+        paper_content: The full text content of the paper (from read_pdf)
+        summary_type: Type of summary:
+            - "comprehensive" - Full analysis with all sections
+            - "abstract" - Brief 2-3 sentence summary
+            - "key_points" - Bullet points of main contributions
+            - "methodology" - Focus on research methods
+            - "beginner" - Explain like I'm new to this field
+
+    Returns:
+        Structured summary based on the requested type
+    """
+    try:
+        from google import genai
+
+        gemini_key = os.getenv("GEMINI_API_KEY_5") or os.getenv("GEMINI_API_KEY_1")
+        if not gemini_key:
+            return "[ERROR] No GEMINI_API_KEY found"
+
+        client = genai.Client(api_key=gemini_key)
+
+        prompts = {
+            "comprehensive": f"""Analyze this research paper and provide a comprehensive summary:
+
+PAPER CONTENT:
+{paper_content[:15000]}
+
+Provide the following sections:
+
+## 1. ABSTRACT SUMMARY (2-3 sentences)
+Brief overview of what the paper is about.
+
+## 2. KEY CONTRIBUTIONS (3-5 bullet points)
+- Main findings and contributions
+
+## 3. METHODOLOGY
+- Research design
+- Data collection methods
+- Analysis techniques
+
+## 4. MAIN FINDINGS
+- Key results
+- Statistical significance (if applicable)
+
+## 5. LIMITATIONS
+- Acknowledged limitations
+- Potential weaknesses
+
+## 6. IMPLICATIONS
+- Practical implications
+- Future research directions
+
+## 7. CITATION INFO
+Extract: Title, Authors, Year, Journal/Conference (if available)
+
+Format the output clearly with markdown headers.""",
+
+            "abstract": f"""Summarize this research paper in 2-3 concise sentences that capture the main objective, methodology, and key findings:
+
+{paper_content[:10000]}
+
+Return ONLY the summary, nothing else.""",
+
+            "key_points": f"""Extract the KEY CONTRIBUTIONS and MAIN POINTS from this research paper as bullet points:
+
+{paper_content[:12000]}
+
+Format:
+## Key Contributions
+- [Point 1]
+- [Point 2]
+- [Point 3]
+- [Point 4]
+- [Point 5]
+
+## Main Findings
+- [Finding 1]
+- [Finding 2]
+- [Finding 3]
+
+Be concise but informative.""",
+
+            "methodology": f"""Analyze the METHODOLOGY section of this research paper in detail:
+
+{paper_content[:12000]}
+
+Provide:
+## Research Design
+- Type of study (experimental, observational, qualitative, etc.)
+
+## Data Collection
+- How was data collected?
+- Sample size and characteristics
+
+## Analysis Methods
+- Statistical methods used
+- Tools/software mentioned
+
+## Validity & Reliability
+- How did authors ensure validity?
+
+## Limitations of Methodology
+- What are the methodological weaknesses?""",
+
+            "beginner": f"""Explain this research paper in simple terms for someone NEW to this field:
+
+{paper_content[:12000]}
+
+Use:
+- Simple language (no jargon)
+- Analogies where helpful
+- Short sentences
+- Explain technical terms when used
+
+Structure:
+## What is this paper about? (1-2 sentences)
+
+## Why does this matter? (Real-world importance)
+
+## What did the researchers do? (Methods in simple terms)
+
+## What did they find? (Key results)
+
+## What does this mean for the field?
+
+## Key terms explained:
+- [Term 1]: [Simple explanation]
+- [Term 2]: [Simple explanation]"""
+        }
+
+        prompt = prompts.get(summary_type, prompts["comprehensive"])
+
+        print(f"[SUMMARIZE] Generating {summary_type} summary...")
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        result = response.text.strip()
+
+        output = []
+        output.append(f"{'='*80}")
+        output.append(f"PAPER SUMMARY - Type: {summary_type.upper()}")
+        output.append(f"{'='*80}\n")
+        output.append(result)
+
+        print(f"[OK] Summary generated successfully")
+        return "\n".join(output)
+
+    except Exception as e:
+        import traceback
+        print(f"Error: {traceback.format_exc()}")
+        return f"[ERROR] Error generating summary: {str(e)}"
+
+
+@function_tool
+def generate_citation(paper_content: str, citation_style: str = "all") -> str:
+    """
+    Generate formatted citations from paper content in multiple styles.
+
+    Args:
+        paper_content: The paper content or metadata
+        citation_style: Citation format:
+            - "bibtex" - BibTeX format
+            - "apa" - APA 7th edition
+            - "mla" - MLA format
+            - "harvard" - Harvard style
+            - "chicago" - Chicago style
+            - "ieee" - IEEE format
+            - "all" - Generate all formats
+
+    Returns:
+        Formatted citation(s)
+    """
+    try:
+        from google import genai
+
+        gemini_key = os.getenv("GEMINI_API_KEY_5") or os.getenv("GEMINI_API_KEY_1")
+        if not gemini_key:
+            return "[ERROR] No GEMINI_API_KEY found"
+
+        client = genai.Client(api_key=gemini_key)
+
+        prompt = f"""Extract bibliographic information from this paper and generate citations:
+
+PAPER CONTENT (first part):
+{paper_content[:5000]}
+
+First, extract:
+- Title
+- Authors (all of them)
+- Year
+- Journal/Conference name
+- Volume, Issue, Pages (if available)
+- DOI (if available)
+- Publisher (if available)
+
+Then generate citations in these formats:
+"""
+
+        if citation_style == "all":
+            prompt += """
+## BibTeX
+```bibtex
+@article{...}
+```
+
+## APA 7th Edition
+[Full APA citation]
+
+## MLA
+[Full MLA citation]
+
+## Harvard
+[Full Harvard citation]
+
+## Chicago
+[Full Chicago citation]
+
+## IEEE
+[Full IEEE citation]
+"""
+        else:
+            style_prompts = {
+                "bibtex": "Generate ONLY a BibTeX citation:\n```bibtex\n@article{...}\n```",
+                "apa": "Generate ONLY an APA 7th edition citation.",
+                "mla": "Generate ONLY an MLA format citation.",
+                "harvard": "Generate ONLY a Harvard style citation.",
+                "chicago": "Generate ONLY a Chicago style citation.",
+                "ieee": "Generate ONLY an IEEE format citation."
+            }
+            prompt += style_prompts.get(citation_style, style_prompts["apa"])
+
+        print(f"[CITATION] Generating {citation_style} citation(s)...")
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        result = response.text.strip()
+
+        output = []
+        output.append(f"{'='*80}")
+        output.append(f"GENERATED CITATIONS")
+        output.append(f"{'='*80}\n")
+        output.append(result)
+
+        print(f"[OK] Citations generated successfully")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error generating citation: {str(e)}"
+
+
+@function_tool
+def compare_papers(papers_content: str) -> str:
+    """
+    Compare multiple research papers and identify agreements, disagreements, and gaps.
+
+    Args:
+        papers_content: Combined content of multiple papers, separated by "---PAPER---"
+                       Format: "Paper 1 content ---PAPER--- Paper 2 content ---PAPER--- Paper 3 content"
+
+    Returns:
+        Detailed comparison analysis
+    """
+    try:
+        from google import genai
+
+        gemini_key = os.getenv("GEMINI_API_KEY_5") or os.getenv("GEMINI_API_KEY_1")
+        if not gemini_key:
+            return "[ERROR] No GEMINI_API_KEY found"
+
+        client = genai.Client(api_key=gemini_key)
+
+        prompt = f"""Analyze and compare these research papers:
+
+{papers_content[:20000]}
+
+Provide a detailed comparison:
+
+## 1. PAPER IDENTIFICATION
+For each paper, identify:
+- Title
+- Authors
+- Year
+- Main focus
+
+## 2. AGREEMENTS
+What do these papers agree on?
+- Common findings
+- Shared conclusions
+- Similar methodologies
+
+## 3. DISAGREEMENTS
+Where do these papers differ?
+- Conflicting findings
+- Different interpretations
+- Methodological differences
+
+## 4. METHODOLOGICAL COMPARISON
+| Aspect | Paper 1 | Paper 2 | Paper 3 |
+|--------|---------|---------|---------|
+| Design | | | |
+| Sample | | | |
+| Methods| | | |
+
+## 5. RESEARCH GAPS IDENTIFIED
+Based on these papers, what gaps exist in the literature?
+- Unexplored areas
+- Contradictions needing resolution
+- Future research opportunities
+
+## 6. SYNTHESIS
+How do these papers together contribute to understanding the topic?
+
+## 7. RECOMMENDATIONS
+Which paper(s) should be prioritized for:
+- Understanding fundamentals
+- Latest developments
+- Methodological guidance"""
+
+        print(f"[COMPARE] Analyzing multiple papers...")
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        result = response.text.strip()
+
+        output = []
+        output.append(f"{'='*80}")
+        output.append(f"MULTI-PAPER COMPARISON ANALYSIS")
+        output.append(f"{'='*80}\n")
+        output.append(result)
+
+        print(f"[OK] Comparison analysis completed")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error comparing papers: {str(e)}"
+
+
+@function_tool
+def write_literature_review(papers_content: str, topic: str = "", style: str = "academic") -> str:
+    """
+    Generate a literature review section from multiple papers.
+
+    Args:
+        papers_content: Combined content of papers (separated by ---PAPER---)
+        topic: The topic/theme of the literature review
+        style: Writing style - "academic", "concise", "detailed"
+
+    Returns:
+        Formatted literature review with proper citations
+    """
+    try:
+        from google import genai
+
+        gemini_key = os.getenv("GEMINI_API_KEY_5") or os.getenv("GEMINI_API_KEY_1")
+        if not gemini_key:
+            return "[ERROR] No GEMINI_API_KEY found"
+
+        client = genai.Client(api_key=gemini_key)
+
+        style_instructions = {
+            "academic": "Use formal academic language, passive voice where appropriate, and scholarly tone.",
+            "concise": "Be brief and to the point. Focus on key findings only.",
+            "detailed": "Provide comprehensive coverage with detailed explanations and connections."
+        }
+
+        topic_text = f"on the topic of '{topic}'" if topic else ""
+
+        prompt = f"""Write a LITERATURE REVIEW section {topic_text} based on these research papers:
+
+{papers_content[:20000]}
+
+INSTRUCTIONS:
+- {style_instructions.get(style, style_instructions["academic"])}
+- Synthesize findings across papers (don't just summarize each paper separately)
+- Use proper in-text citations (Author, Year) format
+- Group related findings thematically
+- Identify trends, patterns, and gaps
+- Maintain logical flow between paragraphs
+
+STRUCTURE:
+## Literature Review
+
+### Introduction (1 paragraph)
+Brief overview of the research landscape.
+
+### Theme 1: [Identify main theme from papers]
+Synthesize findings from multiple papers on this theme.
+
+### Theme 2: [Second theme]
+Synthesize findings on this theme.
+
+### Theme 3: [Third theme if applicable]
+Synthesize findings on this theme.
+
+### Research Gaps and Future Directions
+Based on the reviewed literature, identify gaps.
+
+### Summary
+Brief synthesis of the main takeaways.
+
+---
+## References
+List all papers cited in the review (APA format).
+
+IMPORTANT:
+- Never fabricate citations
+- Only cite papers actually provided
+- Use (Author, Year) format for in-text citations"""
+
+        print(f"[LIT REVIEW] Writing literature review ({style} style)...")
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        result = response.text.strip()
+
+        output = []
+        output.append(f"{'='*80}")
+        output.append(f"GENERATED LITERATURE REVIEW")
+        output.append(f"Topic: {topic if topic else 'Based on provided papers'}")
+        output.append(f"Style: {style}")
+        output.append(f"{'='*80}\n")
+        output.append(result)
+
+        print(f"[OK] Literature review generated")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error writing literature review: {str(e)}"
+
+
+@function_tool
+def refine_research_question(topic: str, context: str = "") -> str:
+    """
+    Help refine a vague research idea into clear research questions, hypotheses, and variables.
+
+    Args:
+        topic: The research topic or vague idea
+        context: Additional context (field, constraints, available resources)
+
+    Returns:
+        Refined research questions with hypotheses and methodology suggestions
+    """
+    try:
+        from google import genai
+
+        gemini_key = os.getenv("GEMINI_API_KEY_5") or os.getenv("GEMINI_API_KEY_1")
+        if not gemini_key:
+            return "[ERROR] No GEMINI_API_KEY found"
+
+        client = genai.Client(api_key=gemini_key)
+
+        context_text = f"\nAdditional context: {context}" if context else ""
+
+        prompt = f"""Help refine this research topic into clear research questions:
+
+TOPIC: {topic}
+{context_text}
+
+Provide:
+
+## 1. TOPIC ANALYSIS
+- What is the core phenomenon being studied?
+- Why is this important?
+- What gaps might exist?
+
+## 2. REFINED RESEARCH QUESTIONS
+
+### Primary Research Question (RQ1)
+[Clear, focused, answerable question]
+
+### Secondary Research Questions
+- RQ2: [Related question]
+- RQ3: [Related question]
+
+## 3. HYPOTHESES (if applicable)
+- H1: [Testable hypothesis for RQ1]
+- H2: [Alternative hypothesis]
+
+## 4. VARIABLES
+
+### For Quantitative Research:
+| Variable Type | Variable Name | Measurement |
+|---------------|---------------|-------------|
+| Independent   |               |             |
+| Dependent     |               |             |
+| Control       |               |             |
+
+### For Qualitative Research:
+- Key concepts to explore
+- Themes to investigate
+
+## 5. SUGGESTED METHODOLOGY
+
+### Approach Options:
+1. **Quantitative**: [Specific method suggestion]
+2. **Qualitative**: [Specific method suggestion]
+3. **Mixed Methods**: [How to combine]
+
+### Data Collection Suggestions:
+- Primary data: [Methods]
+- Secondary data: [Sources]
+
+### Analysis Techniques:
+- [Suggested analytical approaches]
+
+## 6. POTENTIAL CHALLENGES
+- [Challenge 1 and mitigation]
+- [Challenge 2 and mitigation]
+
+## 7. RECOMMENDED READING
+Suggest 3-5 seminal papers/books to start with (describe what to search for)."""
+
+        print(f"[RESEARCH Q] Refining research question...")
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        result = response.text.strip()
+
+        output = []
+        output.append(f"{'='*80}")
+        output.append(f"RESEARCH QUESTION REFINEMENT")
+        output.append(f"Original Topic: {topic}")
+        output.append(f"{'='*80}\n")
+        output.append(result)
+
+        print(f"[OK] Research question refined")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error refining research question: {str(e)}"
+
+
+@function_tool
+def extract_paper_metadata(paper_content: str) -> str:
+    """
+    Extract structured metadata from a research paper.
+
+    Args:
+        paper_content: The paper content
+
+    Returns:
+        Structured metadata (title, authors, abstract, keywords, etc.)
+    """
+    try:
+        from google import genai
+        import json
+
+        gemini_key = os.getenv("GEMINI_API_KEY_5") or os.getenv("GEMINI_API_KEY_1")
+        if not gemini_key:
+            return "[ERROR] No GEMINI_API_KEY found"
+
+        client = genai.Client(api_key=gemini_key)
+
+        prompt = f"""Extract metadata from this research paper:
+
+{paper_content[:8000]}
+
+Return a structured extraction:
+
+## METADATA
+
+**Title:** [Full title]
+
+**Authors:** [All authors, comma-separated]
+
+**Year:** [Publication year]
+
+**Journal/Conference:** [Where published]
+
+**Volume/Issue/Pages:** [If available]
+
+**DOI:** [If available]
+
+**Abstract:** [Full abstract]
+
+**Keywords:** [Listed keywords or extracted key terms]
+
+**Research Type:** [Empirical/Theoretical/Review/Meta-analysis/etc.]
+
+**Field/Discipline:** [Primary field]
+
+**Methodology:** [Brief: Quantitative/Qualitative/Mixed/etc.]
+
+**Sample/Data:** [Brief description of data used]
+
+**Key Findings:** [1-2 sentences]
+
+**Limitations Mentioned:** [Brief]
+
+**Future Work Suggested:** [Brief]"""
+
+        print(f"[METADATA] Extracting paper metadata...")
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        result = response.text.strip()
+
+        output = []
+        output.append(f"{'='*80}")
+        output.append(f"EXTRACTED PAPER METADATA")
+        output.append(f"{'='*80}\n")
+        output.append(result)
+
+        print(f"[OK] Metadata extracted")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error extracting metadata: {str(e)}"
+
+
+@function_tool
+def write_section(content: str, section_type: str, style: str = "academic") -> str:
+    """
+    Help write specific sections of a research paper.
+
+    Args:
+        content: Source content/notes/data to use
+        section_type: Which section to write:
+            - "abstract" - Write abstract
+            - "introduction" - Write introduction
+            - "related_work" - Write related work/literature review
+            - "methodology" - Write methodology section
+            - "results" - Help structure results
+            - "discussion" - Write discussion
+            - "conclusion" - Write conclusion
+        style: "academic", "concise", "journal" (specific journal style)
+
+    Returns:
+        Draft of the requested section
+    """
+    try:
+        from google import genai
+
+        gemini_key = os.getenv("GEMINI_API_KEY_5") or os.getenv("GEMINI_API_KEY_1")
+        if not gemini_key:
+            return "[ERROR] No GEMINI_API_KEY found"
+
+        client = genai.Client(api_key=gemini_key)
+
+        section_prompts = {
+            "abstract": f"""Write an ABSTRACT for a research paper based on this content:
+
+{content[:10000]}
+
+The abstract should:
+- Be 150-300 words
+- Include: Background, Objective, Methods, Results, Conclusion
+- Be self-contained
+- Use past tense for methods/results
+- Avoid citations and abbreviations
+
+Write in {style} style.""",
+
+            "introduction": f"""Write an INTRODUCTION section based on this content:
+
+{content[:12000]}
+
+Structure:
+1. Opening hook - Why is this topic important?
+2. Background - What do we know?
+3. Gap - What's missing in current knowledge?
+4. Objective - What does this research aim to do?
+5. Contribution - What's new/significant?
+6. Paper structure (optional) - Brief roadmap
+
+Write in {style} style with proper academic tone.""",
+
+            "related_work": f"""Write a RELATED WORK / LITERATURE REVIEW section:
+
+{content[:15000]}
+
+Structure:
+- Organize thematically (not paper by paper)
+- Show evolution of research in this area
+- Identify trends and patterns
+- Highlight gaps your work addresses
+- Use proper citations (Author, Year)
+
+Write in {style} style.""",
+
+            "methodology": f"""Write a METHODOLOGY section based on:
+
+{content[:12000]}
+
+Include:
+1. Research Design - Type of study
+2. Participants/Data - Sample description
+3. Materials/Instruments - Tools used
+4. Procedure - Step by step process
+5. Data Analysis - How data was analyzed
+6. Ethical Considerations (if applicable)
+
+Be specific enough for replication. Write in {style} style.""",
+
+            "results": f"""Help structure a RESULTS section based on:
+
+{content[:12000]}
+
+Organize:
+1. Overview of findings
+2. Present results logically (by research question or hypothesis)
+3. Include statistical details where relevant
+4. Reference tables/figures
+5. Report effect sizes and confidence intervals
+
+Write objectively without interpretation. Use {style} style.""",
+
+            "discussion": f"""Write a DISCUSSION section based on:
+
+{content[:12000]}
+
+Structure:
+1. Summary of key findings
+2. Interpretation - What do results mean?
+3. Comparison with previous research
+4. Theoretical implications
+5. Practical implications
+6. Limitations
+7. Future research directions
+
+Write in {style} style.""",
+
+            "conclusion": f"""Write a CONCLUSION section based on:
+
+{content[:10000]}
+
+Include:
+1. Restate the research problem
+2. Summarize main findings (without new info)
+3. State the significance
+4. Final thoughts / call to action
+
+Keep it concise (1-2 paragraphs). Write in {style} style."""
+        }
+
+        prompt = section_prompts.get(section_type, section_prompts["abstract"])
+
+        print(f"[WRITING] Drafting {section_type} section...")
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        result = response.text.strip()
+
+        output = []
+        output.append(f"{'='*80}")
+        output.append(f"DRAFT: {section_type.upper()} SECTION")
+        output.append(f"Style: {style}")
+        output.append(f"{'='*80}\n")
+        output.append(result)
+        output.append(f"\n{'='*80}")
+        output.append("NOTE: This is a draft. Review and edit as needed.")
+        output.append(f"{'='*80}")
+
+        print(f"[OK] {section_type} section drafted")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error writing section: {str(e)}"
+
+
 async def main():
     
     web_researcher: Agent = Agent(
