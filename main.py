@@ -779,49 +779,178 @@ def list_files_in_folder(folder_path: str) -> str:
 @function_tool
 def create_word_file(content: str, file_name: str, title: str = "Document") -> str:
     """
-    Create a Word document with formatted content including headings.
-    
+    Create a professionally formatted Word document using AI to auto-structure content.
+    AI automatically detects headings, subheadings, bullet points, and applies proper formatting.
+
     Args:
         content: The text content to write in the document
         file_name: Name of the file to create (e.g., 'output.docx')
         title: Title/heading for the document (optional)
-        
+
     Returns:
         Success message with file path
     """
     try:
+        from docx.shared import Inches, Cm, RGBColor
+        from docx.enum.style import WD_STYLE_TYPE
+        from google import genai
+        import json
+
+        print("[WORD] Creating professionally formatted Word document...")
+
+        # Use Gemini to structure content
+        gemini_key = os.getenv("GEMINI_API_KEY_5") or os.getenv("GEMINI_API_KEY_1")
+
+        structured_content = None
+        if gemini_key and len(content) > 100:
+            try:
+                client = genai.Client(api_key=gemini_key)
+
+                structure_prompt = f"""Analyze this text and structure it for a professional Word document.
+Return a JSON object with this exact format:
+{{
+    "title": "Document Title",
+    "sections": [
+        {{
+            "type": "heading1",
+            "text": "Main Section Title"
+        }},
+        {{
+            "type": "heading2",
+            "text": "Subsection Title"
+        }},
+        {{
+            "type": "paragraph",
+            "text": "Regular paragraph text..."
+        }},
+        {{
+            "type": "bullet_list",
+            "items": ["Point 1", "Point 2", "Point 3"]
+        }},
+        {{
+            "type": "numbered_list",
+            "items": ["Step 1", "Step 2", "Step 3"]
+        }}
+    ]
+}}
+
+Rules:
+- Identify natural section breaks and create headings
+- Use heading1 for main sections, heading2 for subsections
+- Convert lists to bullet_list or numbered_list
+- Keep paragraphs reasonably sized
+- Extract a good title if not obvious
+
+TEXT TO STRUCTURE:
+{content[:12000]}
+
+Return ONLY the JSON object."""
+
+                print("[WORD] Using AI to structure content...")
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=structure_prompt
+                )
+
+                response_text = response.text.strip()
+                if response_text.startswith("```"):
+                    response_text = response_text.split("```")[1]
+                    if response_text.startswith("json"):
+                        response_text = response_text[4:]
+                response_text = response_text.strip()
+
+                structured_content = json.loads(response_text)
+                print("[WORD] Content structured successfully")
+            except Exception as e:
+                print(f"[WORD] AI structuring failed: {e}, using fallback...")
+
         # Create a new Document
         doc = Document()
-        
-        # Add title
-        title_paragraph = doc.add_heading(title, level=0)
-        title_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-        
-        # Split content by double newlines to create paragraphs
-        paragraphs = content.split('\n\n')
-        
-        for para_text in paragraphs:
-            para_text = para_text.strip()
-            if not para_text:
-                continue
-            
-            # Check if it looks like a heading (starts with #, all caps, or ends with :)
-            if para_text.startswith('#'):
-                # Markdown-style heading
-                heading_level = para_text.count('#', 0, 3)
-                heading_text = para_text.lstrip('#').strip()
-                doc.add_heading(heading_text, level=min(heading_level, 3))
-            elif para_text.isupper() and len(para_text.split()) <= 10:
-                # All caps = heading
-                doc.add_heading(para_text, level=1)
-            elif para_text.endswith(':') and len(para_text.split()) <= 10 and '\n' not in para_text:
-                # Ends with colon = subheading
-                doc.add_heading(para_text.rstrip(':'), level=2)
-            else:
-                # Regular paragraph
-                paragraph = doc.add_paragraph(para_text)
-                paragraph.style = 'Normal'
-        
+
+        # Set default font
+        style = doc.styles['Normal']
+        font = style.font
+        font.name = 'Calibri'
+        font.size = Pt(11)
+
+        if structured_content:
+            # Use AI-structured content
+            doc_title = structured_content.get("title", title)
+            title_paragraph = doc.add_heading(doc_title, level=0)
+            title_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+            for section in structured_content.get("sections", []):
+                section_type = section.get("type", "paragraph")
+
+                if section_type == "heading1":
+                    heading = doc.add_heading(section.get("text", ""), level=1)
+                    # Style heading
+                    for run in heading.runs:
+                        run.font.color.rgb = RGBColor(0x1a, 0x1a, 0x2e)
+
+                elif section_type == "heading2":
+                    heading = doc.add_heading(section.get("text", ""), level=2)
+                    for run in heading.runs:
+                        run.font.color.rgb = RGBColor(0x16, 0x21, 0x3e)
+
+                elif section_type == "heading3":
+                    heading = doc.add_heading(section.get("text", ""), level=3)
+
+                elif section_type == "paragraph":
+                    para = doc.add_paragraph(section.get("text", ""))
+                    para.paragraph_format.space_after = Pt(10)
+                    para.paragraph_format.line_spacing = 1.15
+
+                elif section_type == "bullet_list":
+                    for item in section.get("items", []):
+                        para = doc.add_paragraph(item, style='List Bullet')
+
+                elif section_type == "numbered_list":
+                    for item in section.get("items", []):
+                        para = doc.add_paragraph(item, style='List Number')
+
+                elif section_type == "quote":
+                    para = doc.add_paragraph(section.get("text", ""))
+                    para.paragraph_format.left_indent = Inches(0.5)
+                    para.paragraph_format.right_indent = Inches(0.5)
+                    for run in para.runs:
+                        run.italic = True
+        else:
+            # Fallback: Basic formatting
+            title_paragraph = doc.add_heading(title, level=0)
+            title_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+            paragraphs = content.split('\n\n')
+
+            for para_text in paragraphs:
+                para_text = para_text.strip()
+                if not para_text:
+                    continue
+
+                if para_text.startswith('#'):
+                    heading_level = para_text.count('#', 0, 3)
+                    heading_text = para_text.lstrip('#').strip()
+                    doc.add_heading(heading_text, level=min(heading_level, 3))
+                elif para_text.isupper() and len(para_text.split()) <= 10:
+                    doc.add_heading(para_text, level=1)
+                elif para_text.startswith('- ') or para_text.startswith('* '):
+                    # Bullet points
+                    lines = para_text.split('\n')
+                    for line in lines:
+                        line = line.lstrip('-* ').strip()
+                        if line:
+                            doc.add_paragraph(line, style='List Bullet')
+                elif para_text[0].isdigit() and (para_text[1] == '.' or para_text[1] == ')'):
+                    # Numbered list
+                    lines = para_text.split('\n')
+                    for line in lines:
+                        line = re.sub(r'^\d+[\.\)]\s*', '', line).strip()
+                        if line:
+                            doc.add_paragraph(line, style='List Number')
+                else:
+                    paragraph = doc.add_paragraph(para_text)
+                    paragraph.paragraph_format.space_after = Pt(10)
+
         # Ensure file has .docx extension
         if not file_name.endswith('.docx'):
             file_name += '.docx'
@@ -829,7 +958,7 @@ def create_word_file(content: str, file_name: str, title: str = "Document") -> s
         # Clean filename
         file_name = re.sub(r'[<>:"|?*]', '_', file_name)
 
-        # Save to project downloads folder (for web access)
+        # Save to project downloads folder
         downloads_folder = Path(__file__).parent / "downloads"
         downloads_folder.mkdir(exist_ok=True)
         downloads_path = downloads_folder / file_name
@@ -837,22 +966,26 @@ def create_word_file(content: str, file_name: str, title: str = "Document") -> s
 
         file_size_kb = downloads_path.stat().st_size / 1024
         download_link = f"/api/files/download/{file_name}"
+        print(f"[OK] Word document created: {file_size_kb:.2f} KB")
         return f"[OK] Successfully created Word document!\n[FILE]: {file_name}\n[DOWNLOAD_LINK]: {download_link}\n[SIZE]: {file_size_kb:.2f} KB"
 
     except Exception as e:
+        import traceback
+        print(f"Error: {traceback.format_exc()}")
         return f"[ERROR] Error creating Word document: {str(e)}"
 
 
 @function_tool
 def create_pdf(content: str, file_name: str, title: str = "Document") -> str:
     """
-    Create a PDF document with formatted content including headings.
-    
+    Create a professionally formatted PDF document using AI to auto-structure content.
+    AI automatically detects headings, subheadings, bullet points, and applies proper formatting.
+
     Args:
         content: The text content to write in the PDF
         file_name: Name of the file to create (e.g., 'output.pdf')
         title: Title/heading for the document (optional)
-        
+
     Returns:
         Success message with file path
     """
@@ -860,9 +993,84 @@ def create_pdf(content: str, file_name: str, title: str = "Document") -> str:
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import inch
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT
-        
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, ListFlowable, ListItem
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+        from reportlab.lib.colors import HexColor
+        from google import genai
+        import json
+
+        print("[PDF] Creating professionally formatted PDF document...")
+
+        # Use Gemini to structure content
+        gemini_key = os.getenv("GEMINI_API_KEY_5") or os.getenv("GEMINI_API_KEY_1")
+
+        structured_content = None
+        if gemini_key and len(content) > 100:
+            try:
+                client = genai.Client(api_key=gemini_key)
+
+                structure_prompt = f"""Analyze this text and structure it for a professional PDF document.
+Return a JSON object with this exact format:
+{{
+    "title": "Document Title",
+    "sections": [
+        {{
+            "type": "heading1",
+            "text": "Main Section Title"
+        }},
+        {{
+            "type": "heading2",
+            "text": "Subsection Title"
+        }},
+        {{
+            "type": "paragraph",
+            "text": "Regular paragraph text..."
+        }},
+        {{
+            "type": "bullet_list",
+            "items": ["Point 1", "Point 2", "Point 3"]
+        }},
+        {{
+            "type": "numbered_list",
+            "items": ["Step 1", "Step 2", "Step 3"]
+        }},
+        {{
+            "type": "quote",
+            "text": "Important quote or highlight..."
+        }}
+    ]
+}}
+
+Rules:
+- Identify natural section breaks and create headings
+- Use heading1 for main sections, heading2 for subsections
+- Convert lists to bullet_list or numbered_list
+- Use quote for important highlights
+- Keep paragraphs readable
+
+TEXT TO STRUCTURE:
+{content[:12000]}
+
+Return ONLY the JSON object."""
+
+                print("[PDF] Using AI to structure content...")
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=structure_prompt
+                )
+
+                response_text = response.text.strip()
+                if response_text.startswith("```"):
+                    response_text = response_text.split("```")[1]
+                    if response_text.startswith("json"):
+                        response_text = response_text[4:]
+                response_text = response_text.strip()
+
+                structured_content = json.loads(response_text)
+                print("[PDF] Content structured successfully")
+            except Exception as e:
+                print(f"[PDF] AI structuring failed: {e}, using fallback...")
+
         # Ensure file has .pdf extension
         if not file_name.lower().endswith('.pdf'):
             file_name += '.pdf'
@@ -870,114 +1078,201 @@ def create_pdf(content: str, file_name: str, title: str = "Document") -> str:
         # Clean filename
         file_name = re.sub(r'[<>:"|?*]', '_', file_name)
 
-        # Save to project downloads folder (for web access)
+        # Save to project downloads folder
         downloads_folder = Path(__file__).parent / "downloads"
         downloads_folder.mkdir(exist_ok=True)
         downloads_path = downloads_folder / file_name
-        
+
         # Create PDF document
         doc = SimpleDocTemplate(
             str(downloads_path),
             pagesize=A4,
-            rightMargin=72,
-            leftMargin=72,
-            topMargin=72,
-            bottomMargin=72
+            rightMargin=60,
+            leftMargin=60,
+            topMargin=50,
+            bottomMargin=50
         )
-        
+
         # Get styles
         styles = getSampleStyleSheet()
-        
+
         # Create custom styles
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
-            fontSize=24,
+            fontSize=26,
             alignment=TA_CENTER,
             spaceAfter=30,
-            textColor='#1a1a2e'
+            spaceBefore=20,
+            textColor=HexColor('#1a1a2e'),
+            fontName='Helvetica-Bold'
         )
-        
+
         heading1_style = ParagraphStyle(
             'CustomHeading1',
             parent=styles['Heading1'],
             fontSize=18,
             spaceAfter=12,
-            spaceBefore=20,
-            textColor='#16213e'
+            spaceBefore=25,
+            textColor=HexColor('#16213e'),
+            fontName='Helvetica-Bold',
+            borderPadding=5,
+            borderColor=HexColor('#00d4ff'),
+            borderWidth=0,
+            leftIndent=0
         )
-        
+
         heading2_style = ParagraphStyle(
             'CustomHeading2',
             parent=styles['Heading2'],
             fontSize=14,
             spaceAfter=10,
-            spaceBefore=15,
-            textColor='#0f3460'
+            spaceBefore=18,
+            textColor=HexColor('#0f3460'),
+            fontName='Helvetica-Bold'
         )
-        
+
+        heading3_style = ParagraphStyle(
+            'CustomHeading3',
+            parent=styles['Heading3'],
+            fontSize=12,
+            spaceAfter=8,
+            spaceBefore=12,
+            textColor=HexColor('#1a1a2e'),
+            fontName='Helvetica-Bold'
+        )
+
         body_style = ParagraphStyle(
             'CustomBody',
             parent=styles['Normal'],
             fontSize=11,
-            spaceAfter=8,
-            alignment=TA_LEFT,
+            spaceAfter=10,
+            alignment=TA_JUSTIFY,
+            leading=18,
+            fontName='Helvetica'
+        )
+
+        bullet_style = ParagraphStyle(
+            'CustomBullet',
+            parent=styles['Normal'],
+            fontSize=11,
+            spaceAfter=5,
+            leftIndent=20,
+            bulletIndent=10,
             leading=16
         )
-        
+
+        quote_style = ParagraphStyle(
+            'CustomQuote',
+            parent=styles['Normal'],
+            fontSize=11,
+            spaceAfter=15,
+            spaceBefore=15,
+            leftIndent=30,
+            rightIndent=30,
+            textColor=HexColor('#444444'),
+            fontName='Helvetica-Oblique',
+            leading=16,
+            borderPadding=10,
+            backColor=HexColor('#f5f5f5')
+        )
+
         # Build content
         story = []
-        
-        # Add title
-        story.append(Paragraph(title, title_style))
-        story.append(Spacer(1, 0.3 * inch))
-        
-        # Split content by double newlines to create paragraphs
-        paragraphs = content.split('\n\n')
-        
-        for para_text in paragraphs:
-            para_text = para_text.strip()
-            if not para_text:
-                continue
-            
-            # Escape HTML special characters for ReportLab
-            para_text = para_text.replace('&', '&amp;')
-            para_text = para_text.replace('<', '&lt;')
-            para_text = para_text.replace('>', '&gt;')
-            
-            # Check if it looks like a heading
-            if para_text.startswith('#'):
-                # Markdown-style heading
-                heading_level = para_text.count('#', 0, 3)
-                heading_text = para_text.lstrip('#').strip()
-                if heading_level == 1:
-                    story.append(Paragraph(heading_text, heading1_style))
+
+        def escape_html(text):
+            """Escape HTML special characters for ReportLab"""
+            text = text.replace('&', '&amp;')
+            text = text.replace('<', '&lt;')
+            text = text.replace('>', '&gt;')
+            return text
+
+        if structured_content:
+            # Use AI-structured content
+            doc_title = structured_content.get("title", title)
+            story.append(Paragraph(escape_html(doc_title), title_style))
+            story.append(Spacer(1, 0.3 * inch))
+
+            for section in structured_content.get("sections", []):
+                section_type = section.get("type", "paragraph")
+                text = section.get("text", "")
+
+                if section_type == "heading1":
+                    story.append(Paragraph(escape_html(text), heading1_style))
+
+                elif section_type == "heading2":
+                    story.append(Paragraph(escape_html(text), heading2_style))
+
+                elif section_type == "heading3":
+                    story.append(Paragraph(escape_html(text), heading3_style))
+
+                elif section_type == "paragraph":
+                    text = escape_html(text).replace('\n', '<br/>')
+                    story.append(Paragraph(text, body_style))
+
+                elif section_type == "bullet_list":
+                    items = section.get("items", [])
+                    for item in items:
+                        bullet_text = f"• {escape_html(item)}"
+                        story.append(Paragraph(bullet_text, bullet_style))
+                    story.append(Spacer(1, 0.1 * inch))
+
+                elif section_type == "numbered_list":
+                    items = section.get("items", [])
+                    for i, item in enumerate(items, 1):
+                        num_text = f"{i}. {escape_html(item)}"
+                        story.append(Paragraph(num_text, bullet_style))
+                    story.append(Spacer(1, 0.1 * inch))
+
+                elif section_type == "quote":
+                    story.append(Paragraph(f'"{escape_html(text)}"', quote_style))
+
+        else:
+            # Fallback: Basic formatting
+            story.append(Paragraph(escape_html(title), title_style))
+            story.append(Spacer(1, 0.3 * inch))
+
+            paragraphs = content.split('\n\n')
+
+            for para_text in paragraphs:
+                para_text = para_text.strip()
+                if not para_text:
+                    continue
+
+                para_text_escaped = escape_html(para_text)
+
+                if para_text.startswith('#'):
+                    heading_level = para_text.count('#', 0, 3)
+                    heading_text = para_text.lstrip('#').strip()
+                    if heading_level == 1:
+                        story.append(Paragraph(escape_html(heading_text), heading1_style))
+                    else:
+                        story.append(Paragraph(escape_html(heading_text), heading2_style))
+                elif para_text.isupper() and len(para_text.split()) <= 10:
+                    story.append(Paragraph(para_text_escaped, heading1_style))
+                elif para_text.startswith('- ') or para_text.startswith('* '):
+                    lines = para_text.split('\n')
+                    for line in lines:
+                        line = line.lstrip('-* ').strip()
+                        if line:
+                            story.append(Paragraph(f"• {escape_html(line)}", bullet_style))
                 else:
-                    story.append(Paragraph(heading_text, heading2_style))
-            elif para_text.isupper() and len(para_text.split()) <= 10:
-                # All caps = heading
-                story.append(Paragraph(para_text, heading1_style))
-            elif para_text.endswith(':') and len(para_text.split()) <= 10 and '\n' not in para_text:
-                # Ends with colon = subheading
-                story.append(Paragraph(para_text.rstrip(':'), heading2_style))
-            else:
-                # Regular paragraph - handle line breaks
-                para_text = para_text.replace('\n', '<br/>')
-                story.append(Paragraph(para_text, body_style))
-        
+                    para_text_escaped = para_text_escaped.replace('\n', '<br/>')
+                    story.append(Paragraph(para_text_escaped, body_style))
+
         # Build PDF
         doc.build(story)
 
         file_size_kb = downloads_path.stat().st_size / 1024
         download_link = f"/api/files/download/{file_name}"
+        print(f"[OK] PDF document created: {file_size_kb:.2f} KB")
         return f"[OK] Successfully created PDF document!\n[FILE]: {file_name}\n[DOWNLOAD_LINK]: {download_link}\n[SIZE]: {file_size_kb:.2f} KB"
-    
+
     except ImportError:
         return "[ERROR] Error: reportlab is required. Install it with: pip install reportlab"
     except Exception as e:
         import traceback
-        error_details = traceback.format_exc()
-        print(f"Error details: {error_details}")
+        print(f"Error: {traceback.format_exc()}")
         return f"[ERROR] Error creating PDF document: {str(e)}"
 
 
