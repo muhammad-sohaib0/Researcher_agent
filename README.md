@@ -5,7 +5,6 @@ A comprehensive multi-agent AI system designed for researchers. Download papers,
 ![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ---
 
@@ -296,12 +295,6 @@ Modern landing page with feature showcase and "Get Started" button.
 3. Commit changes (`git commit -m 'Add amazing feature'`)
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
----
-
-## License
-
-This project is licensed under the MIT License.
 
 ---
 
