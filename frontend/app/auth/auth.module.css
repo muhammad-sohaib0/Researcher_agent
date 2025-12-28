@@ -16,7 +16,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 50%, #0f0f1a 100%);
+    background: var(--gradient-bg);
     z-index: -2;
 }
 
@@ -41,19 +41,27 @@
 .orb1 {
     width: 500px;
     height: 500px;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.5) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(0, 102, 255, 0.2) 0%, transparent 70%);
     top: -100px;
     right: -100px;
     animation: float 8s ease-in-out infinite;
 }
 
+[data-theme="light"] .orb1 {
+    background: radial-gradient(circle, rgba(0, 102, 255, 0.1) 0%, transparent 70%);
+}
+
 .orb2 {
     width: 400px;
     height: 400px;
-    background: radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.15) 0%, transparent 70%);
     bottom: -100px;
     left: -100px;
     animation: float 10s ease-in-out infinite reverse;
+}
+
+[data-theme="light"] .orb2 {
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.05) 0%, transparent 70%);
 }
 
 @keyframes float {
@@ -109,12 +117,12 @@
 
 /* Auth Card */
 .authCard {
-    background: rgba(30, 30, 50, 0.7);
+    background: var(--bg-card);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-medium);
     border-radius: 24px;
     padding: 48px 40px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow-lg);
 }
 
 /* Logo */
@@ -133,7 +141,7 @@
 .logoText {
     font-size: 24px;
     font-weight: 700;
-    background: linear-gradient(135deg, #6366f1, #a855f7);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -177,7 +185,7 @@
 }
 
 .toggleBtn.active {
-    background: var(--primary);
+    background: var(--accent);
     color: white;
 }
 
@@ -239,7 +247,7 @@
 .linkBtn {
     background: none;
     border: none;
-    color: var(--primary-light);
+    color: var(--accent);
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
@@ -247,6 +255,7 @@
 
 .linkBtn:hover {
     text-decoration: underline;
+    color: var(--accent-light);
 }
 
 /* Responsive */
