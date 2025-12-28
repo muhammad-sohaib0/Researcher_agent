@@ -128,14 +128,41 @@
   font-size: 20px;
   color: var(--text-secondary);
   line-height: 1.7;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
   animation: fadeIn 0.8s ease 0.2s both;
+}
+
+.statsRow {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 40px;
+  animation: fadeIn 0.8s ease 0.3s both;
+}
+
+.stat {
+  text-align: center;
+}
+
+.statNumber {
+  font-size: 36px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+}
+
+.statLabel {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .heroCta {
   display: flex;
   gap: 16px;
-  animation: fadeIn 0.8s ease 0.4s both;
+  animation: fadeIn 0.8s ease 0.5s both;
 }
 
 .heroVisual {

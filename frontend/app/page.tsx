@@ -13,29 +13,44 @@ export default function Home() {
       description: "Search Semantic Scholar & Google Scholar. Download, analyze, and rank papers by relevance automatically.",
     },
     {
-      icon: "📄",
-      title: "Document Reading",
-      description: "Read PDF, Word, PowerPoint, and images with AI-powered OCR. Extract text with page numbers for citations.",
+      icon: "📊",
+      title: "Smart Summarization",
+      description: "Generate comprehensive summaries, key points, methodology analysis, or beginner-friendly explanations.",
     },
     {
-      icon: "🎙️",
-      title: "Voice Input/Output",
-      description: "Convert speech to text and text to speech. Support for multiple languages including English and Urdu.",
+      icon: "📝",
+      title: "Citation Generator",
+      description: "Auto-generate citations in BibTeX, APA, MLA, Harvard, Chicago, and IEEE formats instantly.",
+    },
+    {
+      icon: "🔍",
+      title: "Paper Comparison",
+      description: "Compare multiple papers to find agreements, disagreements, and research gaps automatically.",
+    },
+    {
+      icon: "✍️",
+      title: "Literature Review Writer",
+      description: "Generate synthesized literature reviews with proper academic citations and thematic organization.",
+    },
+    {
+      icon: "💡",
+      title: "Research Question Refiner",
+      description: "Turn vague research ideas into clear questions, hypotheses, and methodology suggestions.",
+    },
+    {
+      icon: "📄",
+      title: "Document Reading",
+      description: "Read PDF, Word, PowerPoint, images, and audio with AI-powered OCR and transcription.",
+    },
+    {
+      icon: "📑",
+      title: "Section Writer",
+      description: "Draft paper sections: abstract, introduction, methodology, results, discussion, and conclusion.",
     },
     {
       icon: "📥",
-      title: "Export Results",
-      description: "Download your research as formatted Word documents, PDFs, or audio files for easy sharing.",
-    },
-    {
-      icon: "🤖",
-      title: "AI-Powered Analysis",
-      description: "Powered by Gemini AI. Get intelligent, evidence-based answers with proper citations.",
-    },
-    {
-      icon: "📚",
-      title: "Evidence-Based Answers",
-      description: "Every answer comes with exact page numbers and source citations. No guessing, only facts.",
+      title: "Professional Exports",
+      description: "Export as beautifully formatted Word, PDF, PowerPoint presentations, or audio files.",
     },
   ];
 
@@ -74,9 +89,23 @@ export default function Home() {
             <span className="gradient-text"> Research Assistant</span>
           </h1>
           <p className={styles.heroSubtitle}>
-            Search papers, analyze documents, and get evidence-based answers with proper citations.
-            Powered by advanced AI for accurate, reliable research assistance.
+            Advanced multi-agent system for researchers. Download papers, generate citations,
+            write literature reviews, compare research, and create professional outputs - all powered by AI.
           </p>
+          <div className={styles.statsRow}>
+            <div className={styles.stat}>
+              <div className={styles.statNumber}>7+</div>
+              <div className={styles.statLabel}>Analysis Tools</div>
+            </div>
+            <div className={styles.stat}>
+              <div className={styles.statNumber}>6</div>
+              <div className={styles.statLabel}>Citation Formats</div>
+            </div>
+            <div className={styles.stat}>
+              <div className={styles.statNumber}>5</div>
+              <div className={styles.statLabel}>File Types</div>
+            </div>
+          </div>
           <div className={styles.heroCta}>
             <button className="btn btn-primary" onClick={() => router.push("/auth")}>
               🚀 Get Started Free

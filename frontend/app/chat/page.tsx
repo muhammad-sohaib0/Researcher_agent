@@ -441,13 +441,25 @@ export default function ChatPage() {
                         <div className={styles.emptyState}>
                             <div className={styles.emptyIcon}>🧠</div>
                             <h2>Research Agent</h2>
-                            <p>Start a conversation or upload a document to begin your research.</p>
+                            <p>Your AI-powered research assistant. Try these features:</p>
                             <div className={styles.suggestions}>
-                                <button onClick={() => setInput("Find research papers about machine learning")}>
-                                    🔍 Search research papers
+                                <button onClick={() => setInput("Find research papers about machine learning in healthcare")}>
+                                    🔬 Search Papers
+                                </button>
+                                <button onClick={() => setInput("Summarize this paper in simple terms")}>
+                                    📊 Summarize Paper
+                                </button>
+                                <button onClick={() => setInput("Generate APA citation for this paper")}>
+                                    📝 Generate Citation
+                                </button>
+                                <button onClick={() => setInput("Compare these papers and find research gaps")}>
+                                    🔍 Compare Papers
+                                </button>
+                                <button onClick={() => setInput("Write a literature review on AI")}>
+                                    ✍️ Write Review
                                 </button>
                                 <button onClick={() => setShowUpload(true)}>
-                                    📄 Upload a document
+                                    📄 Upload Document
                                 </button>
                             </div>
                         </div>
