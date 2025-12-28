@@ -42,7 +42,7 @@ export default function ChatPage() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const API_URL = "http://localhost:8000";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
     // Extract downloadable files from message content (PDF, Word, Audio, etc.)
     const extractDownloadableFiles = (content: string): { filename: string; downloadLink: string; type: string }[] => {
@@ -167,6 +167,11 @@ export default function ChatPage() {
     // Delete chat
     const deleteChat = async (chatId: number, e: React.MouseEvent) => {
         e.stopPropagation();
+
+        // Confirmation dialog
+        const confirmed = window.confirm("Are you sure you want to delete this chat? This action cannot be undone.");
+        if (!confirmed) return;
+
         try {
             await fetch(`${API_URL}/api/chat/${chatId}`, {
                 method: "DELETE",
@@ -179,6 +184,7 @@ export default function ChatPage() {
             }
         } catch (err) {
             console.error("Failed to delete chat:", err);
+            alert("Failed to delete chat. Please try again.");
         }
     };
 

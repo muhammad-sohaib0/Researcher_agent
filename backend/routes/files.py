@@ -37,22 +37,52 @@ async def upload_file(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload and process a file."""
-    
+    """Upload and process a file with validation."""
+
+    # FILE SIZE LIMIT: 100 MB
+    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
+
+    # Read file content
+    file_content = await file.read()
+    file_size = len(file_content)
+
+    # Validate file size
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail=f"File too large. Maximum size is 100 MB. Your file: {file_size / (1024*1024):.1f} MB")
+
+    if file_size == 0:
+        raise HTTPException(status_code=400, detail="Empty file uploaded")
+
     # Validate file type
     valid_types = ["pdf", "word", "audio", "image", "pptx"]
     if file_type not in valid_types:
         raise HTTPException(status_code=400, detail=f"Invalid file type. Must be one of: {valid_types}")
-    
+
+    # Validate file extension
+    allowed_extensions = {
+        "pdf": [".pdf"],
+        "word": [".doc", ".docx"],
+        "audio": [".mp3", ".wav", ".m4a", ".ogg"],
+        "image": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"],
+        "pptx": [".ppt", ".pptx"]
+    }
+
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in allowed_extensions.get(file_type, []):
+        raise HTTPException(status_code=400, detail=f"Invalid file extension for {file_type}. Allowed: {allowed_extensions[file_type]}")
+
+    # Sanitize filename - prevent path traversal
+    import re
+    safe_original_name = re.sub(r'[^\w\s.-]', '_', file.filename)
+
     # Generate unique filename
-    file_ext = Path(file.filename).suffix
     unique_filename = f"{uuid.uuid4()}{file_ext}"
     file_path = UPLOAD_DIR / unique_filename
-    
+
     # Save file
     try:
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            buffer.write(file_content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
     

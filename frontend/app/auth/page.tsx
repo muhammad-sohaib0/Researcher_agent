@@ -21,6 +21,8 @@ export default function AuthPage() {
         setError("");
     };
 
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -32,7 +34,7 @@ export default function AuthPage() {
                 ? { email: formData.email, password: formData.password }
                 : formData;
 
-            const response = await fetch(`http://localhost:8000${endpoint}`, {
+            const response = await fetch(`${API_URL}${endpoint}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
