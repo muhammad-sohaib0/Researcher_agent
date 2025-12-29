@@ -151,6 +151,28 @@
     background-clip: text;
 }
 
+.sidebarActions {
+    display: flex;
+    gap: 8px;
+}
+
+.searchBtn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 6px 10px;
+    transition: all 0.2s;
+}
+
+.searchBtn:hover {
+    background: rgba(0, 102, 255, 0.15);
+    border-color: rgba(0, 102, 255, 0.3);
+    color: var(--accent);
+}
+
 .toggleSidebar {
     background: none;
     border: none;
@@ -180,6 +202,7 @@
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
 }
 
@@ -256,6 +279,26 @@
 .sidebarFooter {
     padding: 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.shortcutsBtn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 12px;
+    transition: all 0.2s;
+}
+
+.shortcutsBtn:hover {
+    background: rgba(0, 102, 255, 0.1);
+    border-color: rgba(0, 102, 255, 0.3);
+    color: var(--accent);
 }
 
 .logoutBtn {
@@ -361,15 +404,8 @@
 }
 
 @keyframes float {
-
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-10px);
-    }
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
 }
 
 .emptyState h2 {
@@ -427,15 +463,8 @@
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .message.user {
@@ -681,18 +710,8 @@
 }
 
 @keyframes typing {
-
-    0%,
-    60%,
-    100% {
-        transform: translateY(0);
-        opacity: 0.5;
-    }
-
-    30% {
-        transform: translateY(-8px);
-        opacity: 1;
-    }
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-8px); opacity: 1; }
 }
 
 /* Input Area */
@@ -833,15 +852,8 @@
 }
 
 @keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .modalHeader {
@@ -918,6 +930,121 @@
     justify-content: center;
     gap: 12px;
     margin-top: 20px;
+    color: var(--text-secondary);
+}
+
+/* Search Modal */
+.searchContent {
+    padding: 16px 0;
+}
+
+.searchInput {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-medium);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 15px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.searchInput:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.15);
+}
+
+.searchInput::placeholder {
+    color: var(--text-muted);
+}
+
+.searchLoading {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-secondary);
+}
+
+.searchResults {
+    margin-top: 16px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.searchResult {
+    padding: 12px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-medium);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.searchResult:hover {
+    background: rgba(0, 102, 255, 0.1);
+    border-color: var(--accent);
+}
+
+.searchResultChat {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.searchResultContent {
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.searchResultContent mark {
+    background: rgba(0, 102, 255, 0.3);
+    color: var(--accent);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.noResults {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+}
+
+/* Keyboard Shortcuts Modal */
+.shortcutsList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.shortcutItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--bg-surface);
+    border-radius: 10px;
+}
+
+.shortcutKey {
+    display: inline-flex;
+    gap: 6px;
+}
+
+.shortcutKey kbd {
+    display: inline-block;
+    padding: 6px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-medium);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.shortcutAction {
+    font-size: 14px;
     color: var(--text-secondary);
 }
 

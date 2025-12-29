@@ -1,0 +1,257 @@
+/* Loading Spinner and Progress Components Styles */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Spinner */
+.spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner.small {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+.spinner.medium {
+  width: 40px;
+  height: 40px;
+}
+
+.spinner.large {
+  width: 60px;
+  height: 60px;
+  border-width: 4px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.text {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Progress Bar */
+.progressContainer {
+  width: 100%;
+  background-color: #e9ecef;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progressContainer.small {
+  height: 6px;
+}
+
+.progressContainer.medium {
+  height: 10px;
+}
+
+.progressContainer.large {
+  height: 16px;
+}
+
+.progressBar {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Skeleton Loading */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Skeleton Chat */
+.skeletonChat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+}
+
+.skeletonMessages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.skeletonMessage {
+  display: flex;
+  gap: 12px;
+  max-width: 80%;
+}
+
+.skeletonMessage.userMessage {
+  flex-direction: row-reverse;
+  margin-left: auto;
+}
+
+.skeletonMessageContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeletonInput {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+/* File Upload Progress */
+.fileUploadProgress {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 300px;
+}
+
+.fileInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.fileIcon {
+  font-size: 20px;
+}
+
+.fileName {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cancelBtn {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.cancelBtn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #666;
+}
+
+.uploadStats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.uploadSpeed {
+  color: #28a745;
+}
+
+/* PDF Download Progress */
+.pdfDownloadProgress {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 320px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.downloadHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pdfIcon {
+  font-size: 24px;
+}
+
+.downloadTitle {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.downloadFileInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.fileName {
+  font-size: 14px;
+  color: #555;
+}
+
+.pageInfo {
+  font-size: 12px;
+  color: #666;
+  background: #f0f0f0;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
