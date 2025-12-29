@@ -3,14 +3,16 @@
 A comprehensive multi-agent AI system designed for researchers. Download papers, analyze research, generate citations, write literature reviews, and create professional outputs.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.125+-green.svg)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)
+![React](https://img.shields.io/badge/React-19.2-blue)
 
 ---
 
 ## Features
 
 ### Multi-Agent Architecture
+
 | Agent | Role | Tools |
 |-------|------|-------|
 | **Head Agent** | Routes tasks to specialized agents | All sub-agents |
@@ -20,7 +22,7 @@ A comprehensive multi-agent AI system designed for researchers. Download papers,
 | **Paper Importer** | Imports papers from DOI/arXiv/PubMed, advanced search, recommendations | `import_paper_from_doi`, `import_paper_from_arxiv`, `import_paper_from_pubmed`, `advanced_paper_search`, `get_paper_recommendations`, `create_research_note` |
 | **Output Generator** | Creates Word, PDF, PowerPoint, Audio files | `create_word_file`, `create_pdf`, `create_pptx`, `voice_output` |
 
-### Paper Import & Discovery (NEW!)
+### Paper Import & Discovery
 - **DOI Import** - Import any paper using its DOI
   - Fetches metadata from CrossRef
   - Auto-generates APA, BibTeX citations
@@ -44,7 +46,7 @@ A comprehensive multi-agent AI system designed for researchers. Download papers,
   - Tags for organization
   - Linked to papers
 
-### Research Analysis (NEW!)
+### Research Analysis
 - **Smart Summarization** - Multiple types:
   - Comprehensive (full analysis)
   - Abstract (2-3 sentences)
@@ -103,15 +105,18 @@ A comprehensive multi-agent AI system designed for researchers. Download papers,
 - **Google Gemini 2.5 Flash** - LLM (via OpenAI-compatible API)
 - **Groq** - Whisper (speech-to-text) & Llama Vision (OCR)
 - **SQLite** - Database for users and chats
+- **SQLAlchemy 2.0** - ORM database
 - **python-pptx** - PowerPoint generation
-- **PyPDF2** - PDF reading
+- **PyPDF2 & PyMuPDF** - PDF reading
 - **python-docx** - Word document handling
 - **ReportLab** - PDF generation
 
 ### Frontend
-- **Next.js 15** - React framework
-- **TypeScript** - Type-safe JavaScript
+- **Next.js 15** - React framework with App Router
+- **React 19** - UI library
+- **TypeScript 5** - Type-safe JavaScript
 - **CSS Modules** - Scoped styling
+- **Dark/Light Theme** - Theme toggle support
 
 ---
 
@@ -145,11 +150,12 @@ groq_api_key=your_groq_key_here
 SERPAPI_KEY=your_serpapi_key_here
 
 # JWT Secret (any random string)
-SECRET_KEY=your_secret_key_here
+JWT_SECRET_KEY=your_secret_key_here
 ```
 
 ### 3. Install Backend Dependencies
 ```bash
+cd backend
 uv sync
 ```
 
@@ -204,24 +210,38 @@ npm run dev
 "Convert this text to a PowerPoint presentation."
 
 "Download 5 papers on climate change from Google Scholar."
+
+"Import this paper by DOI: 10.1038/s41586-020-2649-2"
+
+"Write a literature review on transformer models"
 ```
 
 ---
 
 ## API Endpoints
 
+### Authentication
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/auth/signup` | POST | Register new user |
 | `/api/auth/login` | POST | Login and get JWT token |
 | `/api/auth/me` | GET | Get current user info |
+
+### Chat
+| Endpoint | Method | Description |
+|----------|--------|-------------|
 | `/api/chat/list` | GET | Get all user chats |
 | `/api/chat/new` | POST | Create new chat |
 | `/api/chat/{id}` | GET | Get chat with messages |
 | `/api/chat/{id}` | DELETE | Delete a chat |
 | `/api/chat/{id}/message` | POST | Send message (streaming) |
-| `/api/files/upload` | POST | Upload file |
+
+### Files
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/files/upload` | POST | Upload and process file |
 | `/api/files/download/{filename}` | GET | Download generated file |
+| `/api/files/list` | GET | List all downloaded files |
 
 ---
 
@@ -230,28 +250,40 @@ npm run dev
 ```
 Researcher_agent/
 ├── backend/
-│   ├── agent_engine.py      # Multi-agent setup
-│   ├── api.py               # FastAPI app entry
-│   ├── auth.py              # JWT authentication
-│   ├── database.py          # SQLite database
-│   ├── models.py            # SQLAlchemy models
-│   ├── schemas.py           # Pydantic schemas
+│   ├── main.py                  # FastAPI application entry
+│   ├── agent_engine.py          # Multi-agent orchestration setup
+│   ├── auth.py                  # JWT authentication
+│   ├── database.py              # SQLite database connection
+│   ├── models.py                # SQLAlchemy ORM models
+│   ├── schemas.py               # Pydantic schemas
+│   ├── tools.py                 # File reading utilities
 │   ├── routes/
-│   │   ├── auth.py          # Auth endpoints
-│   │   ├── chat.py          # Chat endpoints
-│   │   └── files.py         # File endpoints
-│   └── uploads/             # Uploaded files
+│   │   ├── __init__.py
+│   │   ├── auth.py              # Authentication endpoints
+│   │   ├── chat.py              # Chat endpoints with streaming
+│   │   └── files.py             # File upload/download endpoints
+│   ├── uploads/                 # User uploaded files
+│   └── research_agent.db        # SQLite database
 ├── frontend/
 │   ├── app/
-│   │   ├── page.tsx         # Landing page
-│   │   ├── auth/page.tsx    # Login/Signup
-│   │   └── chat/page.tsx    # Chat interface
-│   └── package.json
-├── main.py                  # All tool functions
-├── downloads/               # Generated files
-├── .env                     # Environment variables
-├── pyproject.toml           # Python dependencies
-└── README.md
+│   │   ├── layout.tsx           # Root layout with theme toggle
+│   │   ├── page.tsx             # Landing page
+│   │   └── auth/
+│   │       └── page.tsx         # Login/Signup page
+│   │   └── chat/
+│   │       └── page.tsx         # Chat interface
+│   ├── public/                  # Static assets
+│   ├── package.json             # NPM dependencies
+│   ├── tsconfig.json            # TypeScript configuration
+│   ├── next.config.ts           # Next.js configuration
+│   └── .env.local               # Frontend environment
+├── main.py                      # All tool functions (5,700+ lines)
+├── pyproject.toml               # Python dependencies
+├── .env                         # Environment variables
+├── .env.example                 # Environment template
+├── .gitignore
+├── README.md
+└── downloads/                   # Generated output files
 ```
 
 ---
@@ -287,7 +319,7 @@ Researcher_agent/
 | `extract_paper_metadata` | Extract title, authors, abstract, keywords, etc. |
 | `write_section` | Draft paper sections (abstract/intro/methodology/results/discussion/conclusion) |
 
-### Import & Discovery Tools (NEW!)
+### Import & Discovery Tools
 | Tool | Description |
 |------|-------------|
 | `import_paper_from_doi` | Import paper metadata from DOI (CrossRef API) |
@@ -324,6 +356,51 @@ Modern landing page with feature showcase and "Get Started" button.
 
 ---
 
+## Database Schema
+
+### Users Table
+- `id` - Primary key
+- `email` - Unique email
+- `password_hash` - Bcrypt hashed password
+- `name` - User name
+- `created_at` - Registration timestamp
+
+### Chats Table
+- `id` - Primary key
+- `user_id` - Foreign key to users
+- `title` - Chat title
+- `created_at` - Chat creation timestamp
+- `updated_at` - Last update timestamp
+
+### Messages Table
+- `id` - Primary key
+- `chat_id` - Foreign key to chats
+- `role` - 'user' or 'assistant'
+- `content` - Message content
+- `tool_outputs` - JSON of tool execution results
+- `created_at` - Message timestamp
+
+### UploadedFiles Table
+- `id` - Primary key
+- `filename` - Original filename
+- `file_type` - MIME type
+- `file_size` - File size in bytes
+- `extracted_text` - Extracted content
+- `user_id` - Foreign key
+- `created_at` - Upload timestamp
+
+---
+
+## Security Features
+
+- **JWT Authentication** - 7-day token expiry
+- **Bcrypt Password Hashing** - Secure password storage
+- **CORS Protection** - Configurable allowed origins
+- **File Upload Validation** - Max 100MB, allowed types only
+- **Filename Sanitization** - Prevents path traversal attacks
+
+---
+
 ## Author
 
 **Muhammad Sohaib**
@@ -339,3 +416,7 @@ Modern landing page with feature showcase and "Get Started" button.
 - [Groq](https://groq.com/)
 - [FastAPI](https://fastapi.tiangolo.com/)
 - [Next.js](https://nextjs.org/)
+- [Semantic Scholar API](https://www.semanticscholar.org/product/api)
+- [arXiv API](https://arxiv.org/help/api)
+- [CrossRef API](https://www.crossref.org/services/metadata-delivery/rest-api/)
+- [PubMed API](https://www.ncbi.nlm.nih.gov/home/develop/api.shtml)

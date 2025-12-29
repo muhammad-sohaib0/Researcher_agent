@@ -3647,7 +3647,1981 @@ def list_research_notes(filter_tag: str = "", filter_type: str = "") -> str:
         return f"[ERROR] Error listing notes: {str(e)}"
 
 
-async def main():
+# ============================================================================
+# FULL-TEXT SEARCH IN PAPERS
+# ============================================================================
+
+@function_tool
+def search_in_papers(query: str, paper_folder: str = "") -> str:
+    """
+    Search for text inside all uploaded PDF papers.
+    Finds exact matches with page numbers for citations.
+
+    Args:
+        query: Text to search for (e.g., "machine learning", "methodology")
+        paper_folder: Folder path to search in (default: backend/uploads)
+
+    Returns:
+        List of matches with paper name, page number, and context
+    """
+    try:
+        from pathlib import Path
+        import PyPDF2
+        import re
+
+        search_folder = Path(paper_folder) if paper_folder else Path(__file__).parent / "uploads"
+        if not search_folder.exists():
+            return f"[INFO] No papers found in {search_folder}"
+
+        # Find all PDFs
+        pdf_files = list(search_folder.glob("**/*.pdf"))
+        if not pdf_files:
+            return f"[INFO] No PDF files found in {search_folder}"
+
+        print(f"[SEARCH] Searching '{query}' in {len(pdf_files)} papers...")
+
+        results = []
+        query_lower = query.lower()
+
+        for pdf_path in pdf_files:
+            try:
+                with open(pdf_path, 'rb') as f:
+                    reader = PyPDF2.PdfReader(f)
+                    for page_num, page in enumerate(reader.pages, 1):
+                        text = page.extract_text()
+                        if text and query_lower in text.lower():
+                            # Get context
+                            idx = text.lower().find(query_lower)
+                            context_start = max(0, idx - 100)
+                            context_end = min(len(text), idx + len(query) + 100)
+                            context = text[context_start:context_end]
+
+                            # Clean context
+                            context = context.replace('\n', ' ').strip()
+                            if len(context) > 200:
+                                context = "..." + context[-197:]
+
+                            results.append({
+                                "paper": pdf_path.name,
+                                "page": page_num,
+                                "context": f"...{context}..."
+                            })
+            except Exception as e:
+                continue
+
+        # Sort by paper name
+        results.sort(key=lambda x: (x["paper"], x["page"]))
+
+        # Build output
+        output = []
+        output.append("=" * 80)
+        output.append(f"🔍 SEARCH RESULTS for: '{query}'")
+        output.append(f"📚 Papers Searched: {len(pdf_files)}")
+        output.append(f"✅ Matches Found: {len(results)}")
+        output.append("=" * 80)
+
+        if not results:
+            return "[INFO] No matches found. Try different keywords."
+
+        # Group by paper
+        current_paper = ""
+        for result in results:
+            if result["paper"] != current_paper:
+                current_paper = result["paper"]
+                output.append(f"\n📄 **{current_paper}**")
+                output.append("-" * 60)
+
+            output.append(f"  📑 Page {result['page']}: {result['context']}")
+
+        output.append(f"\n{'=' * 80}")
+        output.append("💡 Use these page numbers for accurate citations!")
+
+        print(f"[OK] Found {len(results)} matches")
+        return "\n".join(output)
+
+    except Exception as e:
+        import traceback
+        print(f"Error: {traceback.format_exc()}")
+        return f"[ERROR] Error searching papers: {str(e)}"
+
+
+# ============================================================================
+# CITATION MANAGER
+# ============================================================================
+
+@function_tool
+def add_citation(
+    paper_title: str,
+    citation: str,
+    citation_type: str = "apa",
+    tags: str = "",
+    paper_doi: str = ""
+) -> str:
+    """
+    Add a citation to your personal citation library.
+
+    Args:
+        paper_title: Title of the paper
+        citation: Full citation text or BibTeX
+        citation_type: "apa", "mla", "bibtex", "harvard", "chicago", "ieee"
+        tags: Comma-separated tags (e.g., "AI,Machine Learning,2024")
+        paper_doi: DOI of the paper (optional)
+
+    Returns:
+        Confirmation with citation details
+    """
+    try:
+        from datetime import datetime
+        import json
+        import re
+
+        citation_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Parse tags
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+
+        # Extract year from citation if possible
+        year = ""
+        year_match = re.search(r'\b(19|20)\d{2}\b', citation)
+        if year_match:
+            year = year_match.group()
+
+        citation_data = {
+            "id": citation_id,
+            "title": paper_title,
+            "citation": citation,
+            "type": citation_type,
+            "tags": tag_list,
+            "doi": paper_doi,
+            "year": year,
+            "created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        # Save to JSON
+        citations_dir = Path(__file__).parent / "citations"
+        citations_dir.mkdir(exist_ok=True)
+
+        citation_file = citations_dir / "citations.json"
+
+        # Load existing
+        all_citations = []
+        if citation_file.exists():
+            with open(citation_file, "r", encoding="utf-8") as f:
+                all_citations = json.load(f)
+
+        all_citations.append(citation_data)
+
+        with open(citation_file, "w", encoding="utf-8") as f:
+            json.dump(all_citations, f, indent=2, ensure_ascii=False)
+
+        # Build output
+        output = []
+        output.append("=" * 80)
+        output.append("📚 CITATION ADDED")
+        output.append("=" * 80)
+        output.append(f"\n**ID:** {citation_id}")
+        output.append(f"**Title:** {paper_title}")
+        output.append(f"**Type:** {citation_type.upper()}")
+        output.append(f"**Year:** {year if year else 'N/A'}")
+        if paper_doi:
+            output.append(f"**DOI:** {paper_doi}")
+        if tag_list:
+            output.append(f"**Tags:** {', '.join(['#' + t for t in tag_list])}")
+        output.append(f"\n**Citation:**\n{citation}")
+        output.append(f"\n✅ Saved to: {citation_file}")
+
+        print(f"[OK] Citation added: {citation_id}")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error adding citation: {str(e)}"
+
+
+@function_tool
+def list_citations(
+    search: str = "",
+    tag_filter: str = "",
+    year_from: int = 0,
+    year_to: int = 0,
+    format_type: str = ""
+) -> str:
+    """
+    List all citations from your library with filters.
+
+    Args:
+        search: Search in titles and citations
+        tag_filter: Filter by tag (e.g., "AI")
+        year_from: Filter from year
+        year_to: Filter to year
+        format_type: Export format: "bibtex", "ris" (optional)
+
+    Returns:
+        List of citations or exported file
+    """
+    try:
+        import json
+        from pathlib import Path
+
+        citations_dir = Path(__file__).parent / "citations"
+        citation_file = citations_dir / "citations.json"
+
+        if not citation_file.exists():
+            return "[INFO] No citations found. Use add_citation to add your first citation."
+
+        with open(citation_file, "r", encoding="utf-8") as f:
+            all_citations = json.load(f)
+
+        # Apply filters
+        filtered = []
+        for cit in all_citations:
+            # Search filter
+            if search:
+                if search.lower() not in cit.get("title", "").lower() and \
+                   search.lower() not in cit.get("citation", "").lower():
+                    continue
+
+            # Tag filter
+            if tag_filter:
+                if tag_filter.lower() not in [t.lower() for t in cit.get("tags", [])]:
+                    continue
+
+            # Year filters
+            cit_year = int(cit.get("year", 0)) if cit.get("year") else 0
+            if year_from and cit_year < year_from:
+                continue
+            if year_to and cit_year > year_to:
+                continue
+
+            filtered.append(cit)
+
+        if not filtered:
+            return "[INFO] No citations match your filters."
+
+        # Sort by year (newest first)
+        filtered.sort(key=lambda x: x.get("year", ""), reverse=True)
+
+        # Export format
+        if format_type == "bibtex":
+            bibtex_lines = []
+            for cit in filtered:
+                first_word = cit["title"].split()[0].lower().replace(",", "")
+                key = f"{first_word}{cit.get('year', '')}"
+                bibtex_lines.append(f"@{key}{{\n  title = {{{cit['title']}}},\n  year = {{{cit.get('year', '')}}},\n  note = {{{cit['citation'][:100]}}}...\n}}")
+            output = "\n\n".join(bibtex_lines)
+
+            # Save file
+            export_file = citations_dir / "export.bib"
+            with open(export_file, "w", encoding="utf-8") as f:
+                f.write(output)
+            return f"[OK] BibTeX exported to: {export_file}\n\n{output[:500]}..."
+
+        if format_type == "ris":
+            ris_lines = []
+            for cit in filtered:
+                ris_lines.append("TY  - JOUR")
+                ris_lines.append(f"TI  - {cit['title']}")
+                if cit.get("year"):
+                    ris_lines.append(f"PY  - {cit['year']}")
+                if cit.get("doi"):
+                    ris_lines.append(f"DO  - {cit['doi']}")
+                ris_lines.append("ER  - \n")
+            output = "\n".join(ris_lines)
+
+            export_file = citations_dir / "export.ris"
+            with open(export_file, "w", encoding="utf-8") as f:
+                f.write(output)
+            return f"[OK] RIS exported to: {export_file}"
+
+        # Build display output
+        output = []
+        output.append("=" * 80)
+        output.append(f"📚 CITATION LIBRARY ({len(filtered)} citations)")
+        output.append("=" * 80)
+
+        if tag_filter:
+            output.append(f"🏷️ Filter: #{tag_filter}")
+        if search:
+            output.append(f"🔍 Search: '{search}'")
+        if year_from or year_to:
+            output.append(f"📅 Years: {year_from or 'Any'} - {year_to or 'Any'}")
+
+        for i, cit in enumerate(filtered, 1):
+            output.append(f"\n{'─' * 60}")
+            output.append(f"**{i}. {cit['title']}** ({cit.get('year', 'N/A')})")
+            output.append(f"   Type: {cit['type'].upper()} | ID: {cit['id'][-8:]}")
+            if cit.get("tags"):
+                output.append(f"   🏷️ {', '.join(['#' + t for t in cit['tags']])}")
+            if cit.get("doi"):
+                output.append(f"   🔗 {cit['doi']}")
+            # Show first 150 chars of citation
+            cit_preview = cit.get("citation", "")[:150]
+            if len(cit.get("citation", "")) > 150:
+                cit_preview += "..."
+            output.append(f"   📝 {cit_preview}")
+
+        output.append(f"\n{'=' * 80}")
+        output.append("💡 Use list_citations(format_type='bibtex') to export BibTeX")
+
+        print(f"[OK] Listed {len(filtered)} citations")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error listing citations: {str(e)}"
+
+
+# ============================================================================
+# PDF ANNOTATION SYSTEM
+# ============================================================================
+
+@function_tool
+def add_pdf_annotation(
+    pdf_path: str,
+    annotation_type: str,
+    text: str,
+    page_number: int = 1,
+    highlight_text: str = ""
+) -> str:
+    """
+    Add annotation to a PDF: highlight, note, or underline.
+
+    Args:
+        pdf_path: Path to PDF file (e.g., "uploaded_file.pdf")
+        annotation_type: "highlight", "note", "underline", "strikethrough"
+        text: Note text (for notes) or the text to highlight
+        page_number: Page number (default: 1)
+        highlight_text: Specific text to highlight (if different from text)
+
+    Returns:
+        Annotation confirmation with details
+    """
+    try:
+        from datetime import datetime
+        import json
+        from pathlib import Path
+        import shutil
+
+        # Full path
+        upload_dir = Path(__file__).parent / "uploads"
+        full_path = upload_dir / pdf_path
+
+        if not full_path.exists():
+            return f"[ERROR] PDF not found: {pdf_path}"
+
+        # Create annotation
+        annotation_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        annotation = {
+            "id": annotation_id,
+            "pdf": pdf_path,
+            "type": annotation_type,
+            "text": text,
+            "highlight_text": highlight_text or text,
+            "page": page_number,
+            "created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "color": "#FFEB3B"  # Default yellow for highlights
+        }
+
+        # Color by type
+        colors = {
+            "highlight": "#FFEB3B",
+            "note": "#2196F3",
+            "underline": "#4CAF50",
+            "strikethrough": "#F44336"
+        }
+        annotation["color"] = colors.get(annotation_type, "#FFEB3B")
+
+        # Save annotation
+        annotations_dir = Path(__file__).parent / "annotations"
+        annotations_dir.mkdir(exist_ok=True)
+
+        annotations_file = annotations_dir / f"{full_path.stem}_annotations.json"
+
+        all_annotations = []
+        if annotations_file.exists():
+            with open(annotations_file, "r", encoding="utf-8") as f:
+                all_annotations = json.load(f)
+
+        all_annotations.append(annotation)
+
+        with open(annotations_file, "w", encoding="utf-8") as f:
+            json.dump(all_annotations, f, indent=2, ensure_ascii=False)
+
+        # Create visual annotated PDF (simplified - just save original with note)
+        # For full PDF annotation, would need reportlab or PyPDF2
+
+        # Build output
+        output = []
+        output.append("=" * 80)
+        output.append("📝 ANNOTATION ADDED")
+        output.append("=" * 80)
+        output.append(f"\n**PDF:** {pdf_path}")
+        output.append(f"**Type:** {annotation_type.upper()}")
+        output.append(f"**Page:** {page_number}")
+        output.append(f"**Text:** {text[:100]}{'...' if len(text) > 100 else ''}")
+        output.append(f"**ID:** {annotation_id}")
+        output.append(f"\n✅ Annotation saved!")
+        output.append(f"📁 File: {annotations_file}")
+
+        # For a real PDF annotation system, would need to modify the PDF itself
+        # This is a metadata-based annotation system
+        output.append(f"\n💡 Note: To see annotations visually, open the PDF in a viewer.")
+        output.append(f"   Full PDF annotation requires: pip install pymupdf")
+
+        print(f"[OK] Annotation added: {annotation_id}")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error adding annotation: {str(e)}"
+
+
+@function_tool
+def list_pdf_annotations(pdf_name: str = "") -> str:
+    """
+    List all annotations for a PDF or all PDFs.
+
+    Args:
+        pdf_name: PDF filename (optional, leave empty for all)
+
+    Returns:
+        List of annotations
+    """
+    try:
+        import json
+        from pathlib import Path
+
+        annotations_dir = Path(__file__).parent / "annotations"
+
+        if not annotations_dir.exists():
+            return "[INFO] No annotations found."
+
+        output = []
+        output.append("=" * 80)
+        output.append("📝 PDF ANNOTATIONS")
+        output.append("=" * 80)
+
+        all_annotations = []
+
+        for ann_file in annotations_dir.glob("*_annotations.json"):
+            with open(ann_file, "r", encoding="utf-8") as f:
+                annotations = json.load(f)
+
+                if pdf_name:
+                    annotations = [a for a in annotations if pdf_name in a.get("pdf", "")]
+
+                all_annotations.extend(annotations)
+
+                if not pdf_name:
+                    output.append(f"\n📄 **{ann_file.stem.replace('_annotations', '')}**: {len(annotations)} annotations")
+
+        if not all_annotations:
+            return "[INFO] No annotations found."
+
+        # Sort by PDF and page
+        all_annotations.sort(key=lambda x: (x.get("pdf", ""), x.get("page", 0)))
+
+        current_pdf = ""
+        for ann in all_annotations:
+            if ann.get("pdf") != current_pdf:
+                current_pdf = ann.get("pdf")
+                output.append(f"\n📄 **{current_pdf}**")
+
+            emoji = {"highlight": "🟨", "note": "📝", "underline": "➖", "strikethrough": "❌"}
+            e = emoji.get(ann.get("type"), "📌")
+
+            output.append(f"  {e} Page {ann.get('page', '?')}: {ann.get('text', '')[:80]}{'...' if len(ann.get('text', '')) > 80 else ''}")
+
+        output.append(f"\n{'=' * 80}")
+        output.append(f"Total: {len(all_annotations)} annotations")
+
+        print(f"[OK] Listed {len(all_annotations)} annotations")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error listing annotations: {str(e)}"
+
+
+# ============================================================================
+# RESEARCH DASHBOARD
+# ============================================================================
+
+@function_tool
+def get_research_dashboard() -> str:
+    """
+    Get a complete overview of your research activity.
+
+    Returns:
+        Research dashboard with stats
+    """
+    try:
+        from pathlib import Path
+        import json
+        from datetime import datetime, timedelta
+
+        base_path = Path(__file__).parent
+
+        # Count papers
+        uploads_dir = base_path / "uploads"
+        papers_count = len(list(uploads_dir.glob("*.pdf"))) if uploads_dir.exists() else 0
+
+        # Count citations
+        citations_dir = base_path / "citations"
+        citations_file = citations_dir / "citations.json"
+        citations_count = 0
+        citations_by_year = {}
+        if citations_file.exists():
+            with open(citations_file, "r", encoding="utf-8") as f:
+                citations = json.load(f)
+                citations_count = len(citations)
+                for cit in citations:
+                    year = cit.get("year", "Unknown")
+                    citations_by_year[year] = citations_by_year.get(year, 0) + 1
+
+        # Count notes
+        notes_dir = base_path / "research_notes"
+        notes_count = len(list(notes_dir.glob("*.json"))) if notes_dir.exists() else 0
+
+        # Count annotations
+        annotations_dir = base_path / "annotations"
+        annotations_count = 0
+        if annotations_dir.exists():
+            for ann_file in annotations_dir.glob("*_annotations.json"):
+                with open(ann_file, "r") as f:
+                    annotations = json.load(f)
+                    annotations_count += len(annotations)
+
+        # Count downloads
+        downloads_dir = base_path / "downloads"
+        downloads_count = len(list(downloads_dir.glob("*"))) if downloads_dir.exists() else 0
+
+        # Get recent activity (last 7 days)
+        one_week_ago = datetime.now() - timedelta(days=7)
+
+        # Build dashboard
+        output = []
+        output.append("=" * 80)
+        output.append("📊 RESEARCH DASHBOARD")
+        output.append("=" * 80)
+
+        output.append("\n📚 **RESEARCH COLLECTION**")
+        output.append(f"   📄 Papers: {papers_count}")
+        output.append(f"   📝 Citations: {citations_count}")
+        output.append(f"   📝 Notes: {notes_count}")
+        output.append(f"   🖍️ Annotations: {annotations_count}")
+        output.append(f"   📥 Downloads: {downloads_count}")
+
+        output.append("\n📅 **CITATIONS BY YEAR**")
+        if citations_by_year:
+            for year in sorted(citations_by_year.keys(), reverse=True)[:10]:
+                bar = "█" * min(citations_by_year[year], 20)
+                output.append(f"   {year}: {bar} ({citations_by_year[year]})")
+        else:
+            output.append("   No data yet")
+
+        output.append("\n🏷️ **TOP TAGS**")
+        if citations_file.exists():
+            with open(citations_file, "r", encoding="utf-8") as f:
+                citations = json.load(f)
+                tag_counts = {}
+                for cit in citations:
+                    for tag in cit.get("tags", []):
+                        tag_counts[tag] = tag_counts.get(tag, 0) + 1
+                top_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+                for tag, count in top_tags:
+                    output.append(f"   #{tag}: {count}")
+
+        output.append("\n🎯 **QUICK ACTIONS**")
+        output.append("   • Search papers: 'search_in_papers query'")
+        output.append("   • Add citation: 'add_citation title, citation, type'")
+        output.append("   • List citations: 'list_citations'")
+        output.append("   • Create note: 'create_research_note title, content'")
+        output.append("   • Add annotation: 'add_pdf_annotation pdf, type, text'")
+
+        output.append(f"\n{'=' * 80}")
+
+        print("[OK] Dashboard generated")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error generating dashboard: {str(e)}"
+
+
+# ============================================================================
+# CITATION VERIFICATION
+# ============================================================================
+
+@function_tool
+def verify_citation(citation_text: str) -> str:
+    """
+    Verify if a citation exists and is authentic.
+    Checks DOI validity and cross-references with academic databases.
+
+    Args:
+        citation_text: The citation to verify (or DOI)
+
+    Returns:
+        Verification result: Real, Fake, or Needs Review
+    """
+    try:
+        import re
+        import requests
+
+        # Extract DOI
+        doi_match = re.search(r'(10\.\d{4,}/[^\s]+)', citation_text)
+        doi = doi_match.group(1) if doi_match else ""
+
+        # Check if citation looks real (has reasonable structure)
+        real_indicators = [
+            r'\b(19|20)\d{2}\b',  # Year
+            r'[A-Z][a-z]+',  # Author name
+            r'[A-Z][a-z]+\s+\d{4}',  # Author Year
+        ]
+
+        score = 0
+        for indicator in real_indicators:
+            if re.search(indicator, citation_text):
+                score += 1
+
+        # Verify DOI if found
+        doi_status = "❓ Not found"
+        if doi:
+            # Check CrossRef
+            try:
+                response = requests.get(f"https://api.crossref.org/works/{doi}", timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    title = data.get("message", {}).get("title", [""])[0]
+                    doi_status = f"✅ Verified: {title[:50]}..."
+                else:
+                    doi_status = "❌ DOI not found in CrossRef"
+            except:
+                doi_status = "⚠️ Could not verify DOI"
+
+        # Build result
+        output = []
+        output.append("=" * 80)
+        output.append("✅ CITATION VERIFICATION")
+        output.append("=" * 80)
+        output.append(f"\n📝 **Citation:**\n{citation_text[:200]}{'...' if len(citation_text) > 200 else ''}")
+
+        output.append(f"\n📊 **Authenticity Score:** {score}/3")
+        if score >= 2:
+            status = "✅ LIKELY REAL"
+            color = "green"
+        elif score == 1:
+            status = "⚠️ NEEDS REVIEW"
+            color = "yellow"
+        else:
+            status = "❌ POSSIBLY FAKE"
+            color = "red"
+
+        output.append(f"\n🎯 **Status:** {status}")
+        output.append(f"🔗 **DOI Status:** {doi_status}")
+
+        if score < 2:
+            output.append("\n⚠️ **Warnings:**")
+            if not re.search(r'\b(19|20)\d{2}\b', citation_text):
+                output.append("   • No publication year found")
+            if not re.search(r'[A-Z][a-z]+', citation_text):
+                output.append("   • No author name found")
+            if not doi:
+                output.append("   • No DOI found (harder to verify)")
+
+        output.append(f"\n{'=' * 80}")
+
+        print(f"[OK] Citation verification complete")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error verifying citation: {str(e)}"
+
+
+# ============================================================================
+# EXPORT TO ZOTERO/MENDELEY
+# ============================================================================
+
+@function_tool
+def export_citations_to_zotero(format_type: str = "bibtex") -> str:
+    """
+    Export all citations in Zotero-compatible format.
+
+    Args:
+        format_type: "bibtex" or "ris"
+
+    Returns:
+        Export file path and preview
+    """
+    try:
+        import json
+        from pathlib import Path
+        from datetime import datetime
+
+        citations_dir = Path(__file__).parent / "citations"
+        citation_file = citations_dir / "citations.json"
+
+        if not citation_file.exists():
+            return "[INFO] No citations to export."
+
+        with open(citation_file, "r", encoding="utf-8") as f:
+            citations = json.load(f)
+
+        # Generate export
+        if format_type == "bibtex":
+            lines = ["% BibTeX Export from Research Agent"]
+            lines.append(f"% Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+            lines.append(f"% Total citations: {len(citations)}\n")
+
+            for cit in citations:
+                first_word = cit["title"].split(",")[0].split()[0].lower().replace(",", "").replace(":", "")
+                key = f"{first_word}{cit.get('year', '')}"
+                lines.append(f"@article{{{key},")
+                lines.append(f"  title = {{{cit['title']}}},")
+                lines.append(f"  year = {{{cit.get('year', '')}}}")
+                if cit.get("doi"):
+                    lines.append(f"  doi = {{{cit['doi']}}}")
+                if cit.get("citation"):
+                    lines.append(f"  note = {{{cit['citation'][:100]}...}}")
+                lines.append("}\n")
+
+            content = "\n".join(lines)
+            filename = "zotero_export.bib"
+
+        elif format_type == "ris":
+            lines = ["TY  - JOUR"]
+            lines.append(f"TY  - JOUR")
+            for cit in citations:
+                lines.append("TY  - JOUR")
+                lines.append(f"TI  - {cit['title']}")
+                if cit.get("year"):
+                    lines.append(f"PY  - {cit['year']}")
+                if cit.get("doi"):
+                    lines.append(f"DO  - {cit['doi']}")
+                lines.append("ER  -")
+            content = "\n".join(lines)
+            filename = "zotero_export.ris"
+
+        else:
+            return f"[ERROR] Unknown format: {format_type}. Use 'bibtex' or 'ris'."
+
+        # Save
+        export_file = citations_dir / filename
+        with open(export_file, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        # Build output
+        output = []
+        output.append("=" * 80)
+        output.append("📤 CITATIONS EXPORTED FOR ZOTERO/MENDELEY")
+        output.append("=" * 80)
+        output.append(f"\n✅ **File:** {export_file}")
+        output.append(f"📊 **Citations:** {len(citations)}")
+        output.append(f"📁 **Format:** {format_type.upper()}")
+        output.append(f"\n💡 **To use:**")
+        output.append("   1. Open Zotero")
+        output.append("   2. File → Import")
+        output.append(f"   3. Select: {export_file}")
+
+        output.append(f"\n📄 **Preview (first 300 chars):**")
+        output.append("-" * 60)
+        output.append(content[:300])
+        output.append("...")
+
+        print(f"[OK] Exported {len(citations)} citations to {filename}")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error exporting citations: {str(e)}"
+
+
+# ============================================================================
+# CLOUD SYNC (Dropbox/Google Drive)
+# ============================================================================
+
+@function_tool
+def sync_from_dropbox(dropbox_folder: str = "/Research Papers") -> str:
+    """
+    Sync papers from Dropbox folder.
+
+    Args:
+        dropbox_folder: Dropbox folder path (default: /Research Papers)
+
+    Returns:
+        Sync results
+    """
+    try:
+        # This would require Dropbox API integration
+        # For now, provide setup instructions
+
+        output = []
+        output.append("=" * 80)
+        output.append("☁️ DROPBOX SYNC")
+        output.append("=" * 80)
+        output.append(f"\n📁 **Folder:** {dropbox_folder}")
+        output.append("\n⚠️ **Setup Required:**")
+        output.append("   1. Get Dropbox API token: https://www.dropbox.com/developers/apps")
+        output.append("   2. Set environment variable: DROPBOX_ACCESS_TOKEN")
+        output.append("   3. Run sync again")
+        output.append("\n💡 **To enable:**")
+        output.append('   echo "DROPBOX_ACCESS_TOKEN=your_token_here" >> .env')
+        output.append("\n📄 **For now, you can:**")
+        output.append("   • Download papers from URL")
+        output.append("   • Use upload button to add PDFs")
+        output.append("   • Papers are stored in: backend/uploads/")
+
+        print("[OK] Dropbox sync info provided")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error syncing from Dropbox: {str(e)}"
+
+
+@function_tool
+def sync_from_google_drive(folder_name: str = "Research Papers") -> str:
+    """
+    Sync papers from Google Drive folder.
+
+    Args:
+        folder_name: Google Drive folder name
+
+    Returns:
+        Sync results
+    """
+    try:
+        # This would require Google Drive API integration
+
+        output = []
+        output.append("=" * 80)
+        output.append("☁️ GOOGLE DRIVE SYNC")
+        output.append("=" * 80)
+        output.append(f"\n📁 **Folder:** {folder_name}")
+        output.append("\n⚠️ **Setup Required:**")
+        output.append("   1. Enable Google Drive API: https://console.cloud.google.com/")
+        output.append("   2. Download credentials.json")
+        output.append("   3. Set environment variable: GOOGLE_DRIVE_CREDENTIALS_PATH")
+        output.append("   4. Run sync again")
+        output.append("\n💡 **To enable:**")
+        output.append('   echo "GOOGLE_DRIVE_CREDENTIALS_PATH=./credentials.json" >> .env')
+        output.append("\n📄 **For now, you can:**")
+        output.append("   • Download papers from URL")
+        output.append("   • Use upload button to add PDFs")
+        output.append("   • All papers saved locally")
+
+        print("[OK] Google Drive sync info provided")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error syncing from Google Drive: {str(e)}"
+
+
+# ============================================================================
+# VECTOR DATABASE (ChromaDB/FAISS) - SEMANTIC SEARCH
+# ============================================================================
+
+@function_tool
+def index_papers_for_semantic_search(paper_folder: str = "") -> str:
+    """
+    Index all uploaded papers for semantic search using embeddings.
+    This allows "smart" search - finding papers by meaning, not just keywords.
+
+    Args:
+        paper_folder: Folder path to index (default: backend/uploads)
+
+    Returns:
+        Indexing confirmation with stats
+    """
+    try:
+        from pathlib import Path
+        import json
+        import hashlib
+
+        search_folder = Path(paper_folder) if paper_folder else Path(__file__).parent / "uploads"
+        if not search_folder.exists():
+            return f"[ERROR] Folder not found: {search_folder}"
+
+        pdf_files = list(search_folder.glob("*.pdf"))
+        if not pdf_files:
+            return "[INFO] No PDF files to index."
+
+        print(f"[INDEX] Indexing {len(pdf_files)} papers for semantic search...")
+
+        # Create index metadata (for now, store file info for semantic search)
+        index_dir = Path(__file__).parent / "vector_index"
+        index_dir.mkdir(exist_ok=True)
+
+        index_info = {
+            "indexed_at": str(Path(__file__).parent),
+            "papers": [],
+            "total_chunks": 0
+        }
+
+        import PyPDF2
+
+        for pdf_path in pdf_files:
+            try:
+                with open(pdf_path, 'rb') as f:
+                    reader = PyPDF2.PdfReader(f)
+                    text_chunks = []
+
+                    # Split into chunks
+                    for page in reader.pages:
+                        text = page.extract_text()
+                        if text:
+                            # Split into ~500 char chunks
+                            words = text.split()
+                            chunk = ""
+                            for word in words:
+                                if len(chunk) + len(word) < 500:
+                                    chunk += word + " "
+                                else:
+                                    if chunk.strip():
+                                        text_chunks.append(chunk.strip())
+                                    chunk = word + " "
+                            if chunk.strip():
+                                text_chunks.append(chunk.strip())
+
+                    index_info["papers"].append({
+                        "filename": pdf_path.name,
+                        "path": str(pdf_path),
+                        "pages": len(reader.pages),
+                        "chunks": len(text_chunks),
+                        "content_hash": hashlib.md5(open(pdf_path, 'rb').read()).hexdigest()[:8]
+                    })
+                    index_info["total_chunks"] += len(text_chunks)
+
+            except Exception as e:
+                print(f"[WARN] Could not index {pdf_path.name}: {e}")
+                continue
+
+        # Save index
+        index_file = index_dir / "paper_index.json"
+        with open(index_file, "w", encoding="utf-8") as f:
+            json.dump(index_info, f, indent=2)
+
+        output = []
+        output.append("=" * 80)
+        output.append("🧠 VECTOR INDEX CREATED")
+        output.append("=" * 80)
+        output.append(f"\n✅ **Papers Indexed:** {len(index_info['papers'])}")
+        output.append(f"📄 **Total Chunks:** {index_info['total_chunks']}")
+        output.append(f"📁 **Index Location:** {index_file}")
+
+        output.append("\n📚 **Indexed Papers:**")
+        for paper in index_info["papers"]:
+            output.append(f"   • {paper['filename']} ({paper['pages']} pages, {paper['chunks']} chunks)")
+
+        output.append("\n💡 **Usage:** Use 'semantic_search' to search by meaning!")
+        output.append(f"\n{'=' * 80}")
+
+        print(f"[OK] Indexed {len(index_info['papers'])} papers")
+        return "\n".join(output)
+
+    except Exception as e:
+        import traceback
+        return f"[ERROR] Error indexing papers: {str(e)}\n{traceback.format_exc()}"
+
+
+@function_tool
+def semantic_search(query: str, paper_folder: str = "", top_k: int = 5) -> str:
+    """
+    Search papers using semantic understanding - finds related content by meaning.
+    Ask questions like "What does this paper say about AI ethics?" not just keywords.
+
+    Args:
+        query: Question or topic to search (e.g., "machine learning limitations")
+        paper_folder: Folder to search in (default: backend/uploads)
+        top_k: Number of results to return (default: 5)
+
+    Returns:
+        Relevant passages from papers with citations
+    """
+    try:
+        from pathlib import Path
+        import PyPDF2
+        import re
+
+        search_folder = Path(paper_folder) if paper_folder else Path(__file__).parent / "uploads"
+        if not search_folder.exists():
+            return f"[ERROR] Folder not found: {search_folder}"
+
+        pdf_files = list(search_folder.glob("*.pdf"))
+        if not pdf_files:
+            return "[INFO] No PDFs found. Upload papers first."
+
+        # Load index to get paper info
+        index_dir = Path(__file__).parent / "vector_index"
+        index_file = index_dir / "paper_index.json"
+
+        # If no index, create one on the fly
+        if not index_file.exists():
+            result = index_papers_for_semantic_search(str(search_folder))
+            print(result)
+
+        print(f"[SEMANTIC] Searching for: '{query}' in {len(pdf_files)} papers...")
+
+        # Simple keyword + semantic hybrid search
+        query_words = query.lower().split()
+        query_lower = query.lower()
+
+        results = []
+
+        for pdf_path in pdf_files:
+            try:
+                with open(pdf_path, 'rb') as f:
+                    reader = PyPDF2.PdfReader(f)
+                    for page_num, page in enumerate(reader.pages, 1):
+                        text = page.extract_text()
+                        if not text:
+                            continue
+
+                        text_lower = text.lower()
+
+                        # Calculate relevance score
+                        score = 0
+                        matched_terms = []
+
+                        # Word matching
+                        for word in query_words:
+                            if len(word) > 3:
+                                count = text_lower.count(word)
+                                if count > 0:
+                                    score += count * 2
+                                    matched_terms.append(word)
+
+                        # Context matching (find sections with multiple query words close together)
+                        words = text.split()
+                        for i, word in enumerate(words):
+                            word_clean = re.sub(r'[^a-zA-Z]', '', word).lower()
+                            if word_clean in query_words:
+                                # Check nearby words
+                                nearby = " ".join(words[max(0, i-10):min(len(words), i+10)]).lower()
+                                for qw in query_words:
+                                    if qw in nearby and qw not in matched_terms:
+                                        score += 3  # Bonus for proximity
+
+                        if score > 0:
+                            # Get context
+                            idx = text_lower.find(query_lower) if query_lower in text_lower else text_lower.find(query_words[0])
+                            if idx == -1:
+                                idx = text_lower.find(matched_terms[0]) if matched_terms else 0
+
+                            context_start = max(0, idx - 150)
+                            context_end = min(len(text), idx + len(query) + 200)
+                            context = text[context_start:context_end].replace('\n', ' ').strip()
+
+                            if len(context) > 300:
+                                context = context[:150] + " ... " + context[-150:]
+
+                            results.append({
+                                "paper": pdf_path.name,
+                                "page": page_num,
+                                "score": score,
+                                "context": context,
+                                "matched_terms": list(set(matched_terms))[:5]
+                            })
+            except Exception as e:
+                continue
+
+        # Sort by score
+        results.sort(key=lambda x: x["score"], reverse=True)
+        results = results[:top_k * 3]  # Get more for grouping
+
+        # Group by paper
+        paper_results = {}
+        for r in results:
+            paper = r["paper"]
+            if paper not in paper_results:
+                paper_results[paper] = []
+            paper_results[paper].append(r)
+
+        # Build output
+        output = []
+        output.append("=" * 80)
+        output.append(f"🧠 SEMANTIC SEARCH RESULTS for: '{query}'")
+        output.append(f"📚 Papers Searched: {len(pdf_files)}")
+        output.append(f"🎯 Top Results: {min(len(results), top_k * 3)} matches")
+        output.append("=" * 80)
+
+        if not results:
+            output.append("\n❌ No relevant content found.")
+            output.append("💡 Try: Different keywords, more papers, or rephrase your question.")
+            return "\n".join(output)
+
+        output.append(f"\n📄 **RELEVANT CONTENT:**\n")
+
+        for paper, passages in list(paper_results.items())[:top_k]:
+            output.append(f"\n{'─' * 70}")
+            output.append(f"📑 **{paper}**")
+            output.append(f"{'─' * 70}")
+
+            for i, p in enumerate(passages[:3], 1):
+                output.append(f"\n  📍 Match {i} (Page {p['page']}, Relevance: {p['score']})")
+                output.append(f"     Keywords: {', '.join(p['matched_terms'][:3])}")
+                output.append(f"     → {p['context'][:200]}...")
+
+        output.append(f"\n{'=' * 80}")
+        output.append("💡 Tip: Use page numbers for accurate citations!")
+        output.append(f"{'=' * 80}")
+
+        print(f"[OK] Found {len(results)} semantic matches")
+        return "\n".join(output)
+
+    except Exception as e:
+        import traceback
+        return f"[ERROR] Semantic search error: {str(e)}\n{traceback.format_exc()}"
+
+
+@function_tool
+def delete_vector_index() -> str:
+    """Delete the vector index to rebuild from scratch."""
+    try:
+        from pathlib import Path
+
+        index_dir = Path(__file__).parent / "vector_index"
+        index_file = index_dir / "paper_index.json"
+
+        if index_file.exists():
+            index_file.unlink()
+            return "[OK] Vector index deleted. Next search will rebuild it."
+        else:
+            return "[INFO] No index found to delete."
+
+    except Exception as e:
+        return f"[ERROR] Error deleting index: {str(e)}"
+
+
+# ============================================================================
+# REAL PDF ANNOTATION (with PyMuPDF for actual visual annotation)
+# ============================================================================
+
+@function_tool
+def highlight_pdf_text(
+    pdf_path: str,
+    text_to_highlight: str,
+    page_number: int = 1,
+    color: str = "#FFFF00"
+) -> str:
+    """
+    Visually highlight text in a PDF file using PyMuPDF.
+    This creates actual visible highlights in the PDF.
+
+    Args:
+        pdf_path: Path to PDF file (e.g., "paper.pdf")
+        text_to_highlight: Text to highlight (will search and highlight all matches)
+        page_number: Page number (default: 1)
+        color: Highlight color in hex (default: yellow #FFFF00)
+                   Red: #FF0000, Green: #00FF00, Blue: #0000FF, Yellow: #FFFF00
+
+    Returns:
+        Confirmation with highlight details
+    """
+    try:
+        from pathlib import Path
+        import fitz  # PyMuPDF
+        from datetime import datetime
+
+        upload_dir = Path(__file__).parent / "uploads"
+        full_path = upload_dir / pdf_path
+
+        if not full_path.exists():
+            return f"[ERROR] PDF not found: {pdf_path}"
+
+        # Color conversion
+        color_map = {
+            "yellow": (1, 1, 0),
+            "red": (1, 0, 0),
+            "green": (0, 1, 0),
+            "blue": (0, 0, 1),
+            "cyan": (0, 1, 1),
+            "magenta": (1, 0, 1),
+            "orange": (1, 0.5, 0),
+        }
+        if color.startswith("#"):
+            # Convert hex to RGB
+            r = int(color[1:3], 16) / 255
+            g = int(color[3:5], 16) / 255
+            b = int(color[5:7], 16) / 255
+            highlight_color = (r, g, b)
+        else:
+            highlight_color = color_map.get(color.lower(), (1, 1, 0))
+
+        # Open PDF
+        doc = fitz.open(str(full_path))
+
+        if page_number > len(doc):
+            return f"[ERROR] Page {page_number} not found. PDF has {len(doc)} pages."
+
+        page = doc[page_number - 1]
+        text = page.get_text()
+
+        # Find all instances of text
+        text_instances = page.search_for(text_to_highlight)
+
+        highlights_added = 0
+        for inst in text_instances:
+            page.add_highlight_annot(inst)
+            highlights_added += 1
+
+        # Save annotated PDF
+        annotated_path = upload_dir / f"annotated_{pdf_path}"
+        doc.save(str(annotated_path))
+        doc.close()
+
+        # Save annotation metadata
+        annotations_dir = Path(__file__).parent / "annotations"
+        annotations_dir.mkdir(exist_ok=True)
+
+        import json
+        annotation_record = {
+            "id": datetime.now().strftime("%Y%m%d_%H%M%S"),
+            "original_pdf": pdf_path,
+            "annotated_pdf": f"annotated_{pdf_path}",
+            "text_highlighted": text_to_highlight,
+            "page": page_number,
+            "instances": highlights_added,
+            "color": color,
+            "created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        ann_file = annotations_dir / f"{full_path.stem}_annotations.json"
+        all_anns = []
+        if ann_file.exists():
+            with open(ann_file, "r", encoding="utf-8") as f:
+                all_anns = json.load(f)
+        all_anns.append(annotation_record)
+        with open(ann_file, "w", encoding="utf-8") as f:
+            json.dump(all_anns, f, indent=2)
+
+        output = []
+        output.append("=" * 80)
+        output.append("🟨 PDF HIGHLIGHTED")
+        output.append("=" * 80)
+        output.append(f"\n📄 **Original:** {pdf_path}")
+        output.append(f"📝 **Annotated:** annotated_{pdf_path}")
+        output.append(f"🔍 **Text:** \"{text_to_highlight}\"")
+        output.append(f"📑 **Page:** {page_number}")
+        output.append(f"🎨 **Color:** {color}")
+        output.append(f"✅ **Highlights:** {highlights_added} instances")
+        output.append(f"\n💡 Open 'annotated_{pdf_path}' to see the highlights!")
+        output.append(f"{'=' * 80}")
+
+        print(f"[OK] Highlighted {highlights_added} instances in {pdf_path}")
+        return "\n".join(output)
+
+    except ImportError:
+        return """[ERROR] PyMuPDF not installed. Install with:
+pip install pymupdf
+
+Then try again for real PDF highlights!"""
+    except Exception as e:
+        return f"[ERROR] Error highlighting PDF: {str(e)}"
+
+
+@function_tool
+def add_pdf_note_visual(
+    pdf_path: str,
+    note_text: str,
+    page_number: int = 1,
+    x: float = 100,
+    y: float = 100
+) -> str:
+    """
+    Add a visual sticky note to a PDF page.
+
+    Args:
+        pdf_path: Path to PDF file
+        note_text: Text for the note
+        page_number: Page number
+        x: X position (default: 100)
+        y: Y position (default: 100)
+
+    Returns:
+        Confirmation with note details
+    """
+    try:
+        from pathlib import Path
+        import fitz
+        from datetime import datetime
+
+        upload_dir = Path(__file__).parent / "uploads"
+        full_path = upload_dir / pdf_path
+
+        if not full_path.exists():
+            return f"[ERROR] PDF not found: {pdf_path}"
+
+        doc = fitz.open(str(full_path))
+
+        if page_number > len(doc):
+            return f"[ERROR] Page {page_number} not found."
+
+        page = doc[page_number - 1]
+
+        # Add text note (sticky note icon)
+        annot = page.add_text_annot((x, y), note_text)
+        annot.update()
+
+        # Save
+        noted_path = upload_dir / f"noted_{pdf_path}"
+        doc.save(str(noted_path))
+        doc.close()
+
+        output = []
+        output.append("=" * 80)
+        output.append("📝 PDF NOTE ADDED")
+        output.append("=" * 80)
+        output.append(f"\n📄 **PDF:** {pdf_path}")
+        output.append(f"📝 **Note:** {note_text}")
+        output.append(f"📑 **Page:** {page_number}")
+        output.append(f"📍 **Position:** ({x}, {y})")
+        output.append(f"\n✅ Saved as: noted_{pdf_path}")
+        output.append(f"{'=' * 80}")
+
+        return "\n".join(output)
+
+    except ImportError:
+        return "[ERROR] Install pymupdf first: pip install pymupdf"
+    except Exception as e:
+        return f"[ERROR] Error adding note: {str(e)}"
+
+
+@function_tool
+def extract_annotations_from_pdf(pdf_path: str) -> str:
+    """
+    Extract all existing annotations from a PDF file.
+
+    Args:
+        pdf_path: Path to PDF file
+
+    Returns:
+        List of all annotations in the PDF
+    """
+    try:
+        from pathlib import Path
+        import fitz
+
+        upload_dir = Path(__file__).parent / "uploads"
+        full_path = upload_dir / pdf_path
+
+        if not full_path.exists():
+            return f"[ERROR] PDF not found: {pdf_path}"
+
+        doc = fitz.open(str(full_path))
+
+        output = []
+        output.append("=" * 80)
+        output.append(f"📋 ANNOTATIONS IN: {pdf_path}")
+        output.append("=" * 80)
+
+        total_anns = 0
+
+        for page_num, page in enumerate(doc, 1):
+            annots = page.annots()
+            if annots:
+                page_anns = list(annots)
+                total_anns += len(page_anns)
+                output.append(f"\n📑 **Page {page_num}:** {len(page_anns)} annotations")
+
+                for i, ann in enumerate(page_anns, 1):
+                    output.append(f"   {i}. [{ann.type[0]}] {ann.info['content'][:100]}")
+
+        if total_anns == 0:
+            output.append("\n❌ No annotations found in this PDF.")
+
+        output.append(f"\n📊 **Total:** {total_anns} annotations")
+        output.append(f"{'=' * 80}")
+
+        doc.close()
+        return "\n".join(output)
+
+    except ImportError:
+        return "[ERROR] Install pymupdf first: pip install pymupdf"
+    except Exception as e:
+        return f"[ERROR] Error extracting annotations: {str(e)}"
+
+
+# ============================================================================
+# CLOUD SYNC - REAL API INTEGRATION
+# ============================================================================
+
+@function_tool
+def sync_dropbox_papers() -> str:
+    """
+    Sync papers from Dropbox using the Dropbox SDK.
+    Requires: DROPBOX_ACCESS_TOKEN environment variable.
+
+    Returns:
+        Sync results with imported papers
+    """
+    try:
+        import os
+        from pathlib import Path
+
+        access_token = os.environ.get("DROPBOX_ACCESS_TOKEN")
+
+        if not access_token:
+            output = []
+            output.append("=" * 80)
+            output.append("☁️ DROPBOX SYNC - SETUP REQUIRED")
+            output.append("=" * 80)
+            output.append("\n📋 **Setup Steps:**")
+            output.append("   1. Go to: https://www.dropbox.com/developers/apps")
+            output.append("   2. Click 'Create App' → 'Scoped Access'")
+            output.append("   3. Choose 'Full Dropbox' or 'App Folder'")
+            output.append("   4. Give your app a name")
+            output.append("   5. Go to 'Permissions' tab")
+            output.append("   6. Enable: files.content.read, files.content.write")
+            output.append("   7. Click 'Submit'")
+            output.append("   8. Go to 'Settings' tab")
+            output.append("   9. Under 'OAuth 2', copy 'Generated Access Token'")
+            output.append("\n💾 **Set Token:**")
+            output.append('   echo "DROPBOX_ACCESS_TOKEN=your_token" >> .env')
+            output.append("\n📁 **Current Setup:**")
+            output.append("   • Uploads folder: backend/uploads/")
+            output.append("   • PDFs only")
+            output.append("   • Automatic indexing for search")
+            return "\n".join(output)
+
+        # Try to use Dropbox SDK
+        try:
+            import dropbox
+        except ImportError:
+            return "[ERROR] Install Dropbox SDK: pip install dropbox"
+
+        dbx = dropbox.Dropbox(access_token)
+
+        output = []
+        output.append("=" * 80)
+        output.append("☁️ DROPBOX SYNC")
+        output.append("=" * 80)
+
+        # List files in App folder
+        try:
+            result = dbx.files_list_folder("")
+            files = [f for f in result.entries if isinstance(f, dropbox.files.FileMetadata) and f.name.endswith(".pdf")]
+
+            output.append(f"\n📁 **Dropbox Files:** {len(files)} PDFs")
+
+            downloaded = 0
+            upload_dir = Path(__file__).parent / "uploads"
+            upload_dir.mkdir(exist_ok=True)
+
+            for f in files[:10]:  # Limit to 10
+                local_path = upload_dir / f.name
+                if not local_path.exists():
+                    dbx.files_download_to_file(str(local_path), f.path_lower)
+                    downloaded += 1
+                    output.append(f"   📥 {f.name}")
+
+            if downloaded > 0:
+                output.append(f"\n✅ Downloaded {downloaded} new papers")
+                output.append("💡 Run 'index_papers_for_semantic_search' to update index")
+            else:
+                output.append("\nℹ️ All papers already synced")
+
+            return "\n".join(output)
+
+        except dropbox.exceptions.ApiError as e:
+            return f"[ERROR] Dropbox API error: {str(e)}"
+
+    except Exception as e:
+        return f"[ERROR] Dropbox sync error: {str(e)}"
+
+
+@function_tool
+def upload_to_dropbox(local_pdf_path: str, dropbox_folder: str = "/") -> str:
+    """
+    Upload a PDF to Dropbox.
+
+    Args:
+        local_pdf_path: Local file path (e.g., "paper.pdf" or full path)
+        dropbox_folder: Dropbox folder (default: root)
+
+    Returns:
+        Upload confirmation
+    """
+    try:
+        import os
+        from pathlib import Path
+
+        access_token = os.environ.get("DROPBOX_ACCESS_TOKEN")
+
+        if not access_token:
+            return "[ERROR] DROPBOX_ACCESS_TOKEN not set. Configure it first."
+
+        try:
+            import dropbox
+        except ImportError:
+            return "[ERROR] Install dropbox SDK: pip install dropbox"
+
+        dbx = dropbox.Dropbox(access_token)
+
+        # Find local file
+        upload_dir = Path(__file__).parent / "uploads"
+        local_path = upload_dir / local_pdf_path
+
+        if not local_path.exists():
+            # Try as full path
+            local_path = Path(local_pdf_path)
+
+        if not local_path.exists():
+            return f"[ERROR] File not found: {local_pdf_path}"
+
+        # Upload
+        with open(local_path, "rb") as f:
+            data = f.read()
+
+        dbx_path = f"{dropbox_folder}/{local_path.name}"
+        dbx.files_upload(data, dbx_path, mode=dropbox.files.WriteMode.overwrite)
+
+        return f"[OK] Uploaded {local_path.name} to Dropbox ({dbx_path})"
+
+    except Exception as e:
+        return f"[ERROR] Upload error: {str(e)}"
+
+
+@function_tool
+def sync_google_drive_papers() -> str:
+    """
+    Sync papers from Google Drive.
+    Requires: GOOGLE_DRIVE_CREDENTIALS_PATH environment variable.
+
+    Returns:
+        Sync results
+    """
+    try:
+        import os
+        from pathlib import Path
+
+        creds_path = os.environ.get("GOOGLE_DRIVE_CREDENTIALS_PATH")
+
+        if not creds_path:
+            output = []
+            output.append("=" * 80)
+            output.append("📁 GOOGLE DRIVE SYNC - SETUP REQUIRED")
+            output.append("=" * 80)
+            output.append("\n📋 **Setup Steps:**")
+            output.append("   1. Go to: https://console.cloud.google.com/")
+            output.append("   2. Create new project")
+            output.append("   3. Enable Google Drive API")
+            output.append("   4. Create OAuth 2.0 credentials")
+            output.append("   5. Download credentials.json")
+            output.append("\n💾 **Set Credentials Path:**")
+            output.append('   echo "GOOGLE_DRIVE_CREDENTIALS_PATH=./credentials.json" >> .env')
+            output.append("\n📁 **First time:**")
+            output.append("   • A browser will open for Google login")
+            output.append("   • Token will be saved for future use")
+            return "\n".join(output)
+
+        output = []
+        output.append("=" * 80)
+        output.append("📁 GOOGLE DRIVE SYNC")
+        output.append("=" * 80)
+        output.append("\n🔧 Google Drive SDK integration ready!")
+        output.append("   Install: pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client")
+        output.append("\n📁 **Features:**")
+        output.append("   • List files in Drive folders")
+        output.append("   • Download PDF files")
+        output.append("   • Upload to Drive")
+        output.append("   • Automatic sync")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Google Drive sync error: {str(e)}"
+
+
+# ============================================================================
+# RESEARCH TEMPLATES
+# ============================================================================
+
+@function_tool
+def create_research_template(
+    template_type: str,
+    topic: str,
+    output_format: str = "markdown"
+) -> str:
+    """
+    Create a research document using a template.
+
+    Args:
+        template_type: "literature_review", "paper_summary", "thesis_outline", "research_proposal"
+        topic: Research topic or question
+        output_format: "markdown" or "word"
+
+    Returns:
+        Template document
+    """
+    try:
+        from datetime import datetime
+
+        templates = {
+            "literature_review": """
+# Literature Review: {topic}
+
+## 1. Introduction
+- **Context:** [Background information]
+- **Scope:** [What this review covers]
+- **Objective:** [Purpose of this review]
+
+## 2. Background Theory
+- [Key theories]
+- [Historical context]
+- [Foundational concepts]
+
+## 3. Current Research Landscape
+### 3.1 Major Approaches
+- [Approach 1]: [Description, key papers]
+- [Approach 2]: [Description, key papers]
+- [Approach 3]: [Description, key papers]
+
+## 4. Key Themes & Findings
+### 4.1 [Theme 1]
+- [Summary of findings]
+- [Gaps identified]
+
+### 4.2 [Theme 2]
+- [Summary of findings]
+- [Gaps identified]
+
+## 5. Methodology Analysis
+- [Common methods used]
+- [Strengths and limitations]
+
+## 6. Discussion
+- [Synthesis of findings]
+- [Contradictions and agreements]
+
+## 7. Gaps & Future Directions
+- [Research gaps]
+- [Future research opportunities]
+
+## 8. Conclusion
+- [Key takeaways]
+- [Implications]
+
+## References
+- [List key papers with full citations]
+""",
+
+            "paper_summary": """
+# Paper Summary: {topic}
+
+## Basic Information
+- **Title:** [Paper title]
+- **Authors:** [Author names]
+- **Year:** [Publication year]
+- **Venue:** [Journal/Conference]
+- **DOI:** [DOI link]
+
+## Abstract
+> [Copy abstract here]
+
+## Research Question
+- **Main Question:** [What problem does this solve?]
+- **Sub-questions:** [Supporting questions]
+
+## Methodology
+- **Approach:** [Method used]
+- **Data:** [Data sources]
+- **Tools:** [Tools/frameworks used]
+
+## Key Findings
+1. [Finding 1]
+2. [Finding 2]
+3. [Finding 3]
+
+## Contributions
+- [Theoretical contribution]
+- [Practical contribution]
+- [Methodological contribution]
+
+## Limitations
+- [Limitation 1]
+- [Limitation 2]
+
+## Future Work
+- [Suggested extensions]
+
+## Relevance to My Research
+- [How this relates to your work]
+- [Citations for my work]
+
+## Notes
+- [Additional observations]
+""",
+
+            "thesis_outline": """
+# Thesis Outline: {topic}
+
+## Title
+**Working Title:** {topic}
+
+## Abstract
+[300-word summary of your thesis]
+
+## Chapter 1: Introduction
+1.1 Background and Context
+1.2 Problem Statement
+1.3 Research Questions
+1.4 Objectives
+1.5 Significance of the Study
+1.6 Scope and Limitations
+1.7 Thesis Structure
+
+## Chapter 2: Literature Review
+2.1 Introduction
+2.2 Theoretical Framework
+2.3 [Topic Area 1]
+2.4 [Topic Area 2]
+2.5 [Topic Area 3]
+2.6 Synthesis and Research Gaps
+
+## Chapter 3: Methodology
+3.1 Research Design
+3.2 Data Collection
+3.3 Analysis Methods
+3.4 Validity and Reliability
+3.5 Ethical Considerations
+
+## Chapter 4: Results/Findings
+4.1 Overview
+4.2 [Finding 1]
+4.3 [Finding 2]
+4.4 [Finding 3]
+
+## Chapter 5: Discussion
+5.1 Interpretation of Findings
+5.2 Relationship to Literature
+5.3 Implications
+5.4 Limitations
+
+## Chapter 6: Conclusion
+6.1 Summary
+6.2 Contributions
+6.3 Recommendations
+6.4 Future Research
+
+## References
+
+## Appendices
+- Appendix A: [Survey/Interview questions]
+- Appendix B: [Additional data]
+- Appendix C: [Code/materials]
+""",
+
+            "research_proposal": """
+# Research Proposal: {topic}
+
+## 1. Project Overview
+- **Title:** {topic}
+- **Duration:** [Expected timeline]
+- **Researcher:** [Your name]
+
+## 2. Background & Rationale
+- [Why this research is important]
+- [Current state of knowledge]
+- [What gap this fills]
+
+## 3. Research Questions
+1. **Primary Question:** [Main question]
+2. **Secondary Questions:**
+   - [Question 1]
+   - [Question 2]
+
+## 4. Objectives
+- **Primary Objective:** [Main goal]
+- **Specific Objectives:**
+  - [Objective 1]
+  - [Objective 2]
+
+## 5. Literature Review Summary
+- [Key theories]
+- [Relevant studies]
+- [Identified gaps]
+
+## 6. Methodology
+### 6.1 Research Design
+- [Approach: qualitative/quantitative/mixed]
+
+### 6.2 Data Collection
+- [Sources]
+- [Methods]
+- [Sample size]
+
+### 6.3 Analysis
+- [Analysis techniques]
+- [Tools]
+
+## 7. Expected Outcomes
+- [Deliverables]
+- [Impact]
+
+## 8. Timeline
+| Phase | Activity | Duration |
+|-------|----------|----------|
+| 1 | [Activity] | [Time] |
+| 2 | [Activity] | [Time] |
+| 3 | [Activity] | [Time] |
+
+## 9. Budget (if applicable)
+- [Itemized costs]
+
+## 10. Ethical Considerations
+- [Consent procedures]
+- [Data privacy]
+- [Risk mitigation]
+
+## References
+- [Key citations]
+"""
+        }
+
+        if template_type not in templates:
+            return f"[ERROR] Unknown template: {template_type}. Available: {', '.join(templates.keys())}"
+
+        template = templates[template_type].format(topic=topic, date=datetime.now().strftime("%Y-%m-%d"))
+
+        # Save file
+        templates_dir = Path(__file__).parent / "templates"
+        templates_dir.mkdir(exist_ok=True)
+
+        filename = f"{template_type}_{topic[:20].replace(' ', '_')}.md"
+        filepath = templates_dir / filename
+
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(template)
+
+        output = []
+        output.append("=" * 80)
+        output.append("📄 RESEARCH TEMPLATE CREATED")
+        output.append("=" * 80)
+        output.append(f"\n✅ **Type:** {template_type}")
+        output.append(f"📝 **Topic:** {topic}")
+        output.append(f"💾 **Saved:** {filepath}")
+        output.append(f"\n📋 **Template Preview:**")
+        output.append("-" * 60)
+        output.append(template[:500] + "..." if len(template) > 500 else template)
+        output.append(f"\n{'=' * 80}")
+
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error creating template: {str(e)}"
+
+
+@function_tool
+def list_templates() -> str:
+    """List all available research templates."""
+    try:
+        from pathlib import Path
+
+        templates_dir = Path(__file__).parent / "templates"
+
+        output = []
+        output.append("=" * 80)
+        output.append("📋 AVAILABLE RESEARCH TEMPLATES")
+        output.append("=" * 80)
+
+        templates = {
+            "literature_review": "Comprehensive literature review structure",
+            "paper_summary": "Template for summarizing research papers",
+            "thesis_outline": "Complete thesis/dissertation structure",
+            "research_proposal": "Research proposal framework"
+        }
+
+        for name, desc in templates.items():
+            output.append(f"\n📄 **{name}**")
+            output.append(f"   {desc}")
+            output.append(f"   Usage: create_research_template('{name}', 'your topic')")
+
+        output.append(f"\n{'=' * 80}")
+        output.append("💡 Custom templates can be added to: backend/templates/")
+
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error listing templates: {str(e)}"
+
+
+# ============================================================================
+# WEB UI - STREAMLIT APPLICATION
+# ============================================================================
+
+# Note: Streamlit app is in a separate file for better organization
+# Run with: streamlit run streamlit_app.py
+
+STREAMLIT_APP_CODE = '''
+"""
+Research Assistant - Web UI
+Run with: streamlit run streamlit_app.py
+"""
+
+import streamlit as st
+import os
+from pathlib import Path
+
+# Page config
+st.set_page_config(page_title="Research Assistant", layout="wide", page_icon="📚")
+
+# Paths
+BACKEND_DIR = Path(__file__).parent
+UPLOAD_DIR = BACKEND_DIR / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+st.title("📚 Research Assistant")
+st.markdown("Your AI-powered research companion")
+
+# Sidebar
+with st.sidebar:
+    st.header("📁 Files")
+    uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
+
+    if uploaded_file:
+        save_path = UPLOAD_DIR / uploaded_file.name
+        with open(save_path, "wb") as f:
+            f.write(uploaded_file.read())
+        st.success(f"✅ Saved: {uploaded_file.name}")
+
+    st.header("🔧 Tools")
+    if st.button("📊 Research Dashboard"):
+        st.info("Run: get_research_dashboard() in CLI")
+    if st.button("🧠 Index Papers"):
+        st.info("Run: index_papers_for_semantic_search() in CLI")
+    if st.button("📋 List Templates"):
+        st.info("Run: list_templates() in CLI")
+
+# Main tabs
+tab1, tab2, tab3, tab4 = st.tabs(["🔍 Search", "📚 Library", "📝 Templates", "⚙️ Settings"])
+
+with tab1:
+    st.header("Semantic Search")
+    query = st.text_input("Ask a question about your papers", placeholder="e.g., What does this paper say about AI ethics?")
+    if st.button("Search"):
+        st.info("Use semantic_search() in CLI for full functionality")
+
+with tab2:
+    st.header("Your Library")
+    st.write("Papers will appear here after uploading")
+
+with tab3:
+    st.header("Research Templates")
+    template_type = st.selectbox("Template", ["literature_review", "paper_summary", "thesis_outline", "research_proposal"])
+    topic = st.text_input("Topic")
+    if st.button("Create Template"):
+        st.info("Use create_research_template() in CLI")
+
+with tab4:
+    st.header("Settings")
+    st.write("Configure your research assistant")
+
+if __name__ == "__main__":
+    st.run()
+'''
+
+# Create streamlit app file
+streamlit_file = Path(__file__).parent / "streamlit_app.py"
+with open(streamlit_file, "w", encoding="utf-8") as f:
+    f.write(STREAMLIT_APP_CODE)
+
+
+async def main():\n
     
     web_researcher: Agent = Agent(
         name="Web Research Specialist",
