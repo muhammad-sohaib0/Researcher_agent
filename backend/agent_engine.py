@@ -78,6 +78,15 @@ refine_research_question = agent_main.refine_research_question
 extract_paper_metadata = agent_main.extract_paper_metadata
 write_section = agent_main.write_section
 
+# ADVANCED RESEARCH TOOLS (DOI, arXiv, PubMed, Advanced Search, Notes)
+import_paper_from_doi = agent_main.import_paper_from_doi
+import_paper_from_arxiv = agent_main.import_paper_from_arxiv
+import_paper_from_pubmed = agent_main.import_paper_from_pubmed
+advanced_paper_search = agent_main.advanced_paper_search
+get_paper_recommendations = agent_main.get_paper_recommendations
+create_research_note = agent_main.create_research_note
+list_research_notes = agent_main.list_research_notes
+
 # Create a simple delete function without the problematic parameter
 from agents import function_tool
 from pathlib import Path
@@ -229,6 +238,45 @@ ALWAYS use the appropriate tool. Never make up information.""",
                refine_research_question, extract_paper_metadata, write_section]
     )
 
+    # NEW: Paper Import Agent - DOI/arXiv/PubMed
+    paper_importer = Agent(
+        name="Paper Importer",
+        instructions="""You help researchers import papers from DOI, arXiv, and PubMed.
+
+1. IMPORT FROM DOI - Use import_paper_from_doi tool
+   - Accepts: DOI string (e.g., "10.1038/nature12373") or full URL
+   - Returns: Full metadata, abstract, citations (APA, BibTeX)
+   - Example: import_paper_from_doi(doi="10.1038/nature12373")
+
+2. IMPORT FROM arXiv - Use import_paper_from_arxiv tool
+   - Accepts: arXiv ID (e.g., "2301.07041") or full URL
+   - Returns: Metadata, abstract, PDF link, citations
+   - Example: import_paper_from_arxiv(arxiv_id="2301.07041")
+
+3. IMPORT FROM PubMed - Use import_paper_from_pubmed tool
+   - Accepts: PMID (e.g., "32908859") or "PMID:32908859"
+   - Returns: Full metadata, MeSH keywords, citations
+   - Example: import_paper_from_pubmed(pubmed_id="32908859")
+
+4. ADVANCED SEARCH - Use advanced_paper_search tool
+   - Filters: year_from, year_to, min_citations, fields_of_study, open_access_only
+   - Example: advanced_paper_search(query="machine learning", year_from=2020, min_citations=100)
+
+5. PAPER RECOMMENDATIONS - Use get_paper_recommendations tool
+   - Based on paper content or research topic
+   - Example: get_paper_recommendations(paper_content="...", num_recommendations=10)
+
+6. RESEARCH NOTES - Use create_research_note and list_research_notes
+   - Types: "general", "key_finding", "methodology", "limitation", "idea", "question"
+   - Example: create_research_note(title="Key insight", content="...", tags="methodology,important")
+
+ALWAYS provide complete metadata and citations when importing papers.""",
+        handoff_description="Imports papers from DOI/arXiv/PubMed, advanced search with filters, recommendations, notes.",
+        model=model_reader,  # GEMINI_API_KEY_3
+        tools=[import_paper_from_doi, import_paper_from_arxiv, import_paper_from_pubmed,
+               advanced_paper_search, get_paper_recommendations, create_research_note, list_research_notes]
+    )
+
     output_generator = Agent(
         name="Output Generator",
         instructions="""You convert text to files (audio/PDF/Word/PowerPoint). You MUST call a tool for EVERY request.
@@ -307,17 +355,26 @@ TASK ROUTING:
    - "write introduction/methodology/etc" → section drafts
    - "explain like I'm a beginner" → simple explanation
 
-ANALYSIS TASK EXAMPLES:
-- "Summarize this paper" → research_analyst_agent with paper content
-- "Generate APA citation" → research_analyst_agent
-- "Compare paper1 and paper2" → research_analyst_agent
-- "Write a literature review on AI" → research_analyst_agent
-- "Help me refine: impact of social media" → research_analyst_agent
-- "Write an introduction section" → research_analyst_agent
+6. PAPER IMPORT & ADVANCED FEATURES (use paper_importer_agent):
+   - "import paper from DOI 10.1038/..." → import_paper_from_doi
+   - "get paper from arXiv 2301.07041" → import_paper_from_arxiv
+   - "import PubMed paper 32908859" → import_paper_from_pubmed
+   - "search papers from 2020-2024 with 100+ citations" → advanced_paper_search
+   - "recommend papers based on this topic" → get_paper_recommendations
+   - "create research note" → create_research_note
+   - "show my notes" → list_research_notes
+
+IMPORT/SEARCH EXAMPLES:
+- "Import DOI 10.1038/nature12373" → paper_importer_agent
+- "Get arXiv paper 2301.07041" → paper_importer_agent
+- "Search AI papers from 2022 with 50+ citations" → paper_importer_agent
+- "Recommend papers on machine learning" → paper_importer_agent
+- "Create a note about methodology" → paper_importer_agent
 
 WORKFLOW FOR PAPER ANALYSIS:
 1. If paper content needed → First use file_reader_agent to get text
 2. Then pass text to research_analyst_agent for analysis
+3. For paper import → use paper_importer_agent directly
 
 FILE CONVERSION FORMAT:
 - Audio: "Convert this to an audio file and give me download link:\n\n[text]"
@@ -339,6 +396,10 @@ IMPORTANT: Always copy [FILE] and [DOWNLOAD_LINK] tags exactly from sub-agent re
             research_analyst.as_tool(
                 tool_name="research_analyst_agent",
                 tool_description="Analyzes papers: summarization (comprehensive/abstract/key_points/methodology/beginner), citations (bibtex/apa/mla/harvard/chicago/ieee), compare papers, write literature reviews, refine research questions, extract metadata, write sections (abstract/introduction/methodology/results/discussion/conclusion)."
+            ),
+            paper_importer.as_tool(
+                tool_name="paper_importer_agent",
+                tool_description="Imports papers from DOI/arXiv/PubMed, advanced search with filters (year, citations, field), paper recommendations based on content, create and manage research notes."
             ),
             output_generator.as_tool(
                 tool_name="output_generator_agent",

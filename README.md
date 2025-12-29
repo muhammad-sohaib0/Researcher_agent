@@ -17,7 +17,32 @@ A comprehensive multi-agent AI system designed for researchers. Download papers,
 | **Web Researcher** | Downloads research papers from Google Scholar & Semantic Scholar | `semantic_scholar_search`, `google_scholar_search`, `download_pdf`, `batch_download_pdfs` |
 | **Document Reader** | Reads PDF, Word, PowerPoint, Images, Audio files | `read_pdf`, `read_word`, `read_pptx`, `read_image`, `extract_text_from_audio` |
 | **Research Analyst** | Analyzes papers, generates citations, compares research | `smart_summarize_paper`, `generate_citation`, `compare_papers`, `write_literature_review`, `refine_research_question`, `write_section` |
+| **Paper Importer** | Imports papers from DOI/arXiv/PubMed, advanced search, recommendations | `import_paper_from_doi`, `import_paper_from_arxiv`, `import_paper_from_pubmed`, `advanced_paper_search`, `get_paper_recommendations`, `create_research_note` |
 | **Output Generator** | Creates Word, PDF, PowerPoint, Audio files | `create_word_file`, `create_pdf`, `create_pptx`, `voice_output` |
+
+### Paper Import & Discovery (NEW!)
+- **DOI Import** - Import any paper using its DOI
+  - Fetches metadata from CrossRef
+  - Auto-generates APA, BibTeX citations
+  - Shows citation count, abstract
+- **arXiv Import** - Import papers from arXiv
+  - Direct PDF download link
+  - Categories and publication date
+- **PubMed Import** - Import medical/biomedical papers
+  - MeSH keywords
+  - Journal information
+- **Advanced Search** - Semantic search with filters:
+  - Year range (e.g., 2020-2024)
+  - Minimum citations (e.g., 100+)
+  - Fields of study
+  - Open access only
+- **Paper Recommendations** - AI-powered suggestions:
+  - Based on uploaded paper content
+  - Based on research topic
+- **Research Notes** - Knowledge management:
+  - Types: key_finding, methodology, limitation, idea, question
+  - Tags for organization
+  - Linked to papers
 
 ### Research Analysis (NEW!)
 - **Smart Summarization** - Multiple types:
@@ -251,7 +276,7 @@ Researcher_agent/
 | `extract_text_from_audio` | Transcribe audio using Groq Whisper |
 | `read_folder` | Read all documents in a folder |
 
-### Analysis Tools (NEW!)
+### Analysis Tools
 | Tool | Description |
 |------|-------------|
 | `smart_summarize_paper` | Generate summaries (comprehensive/abstract/key_points/methodology/beginner) |
@@ -261,6 +286,17 @@ Researcher_agent/
 | `refine_research_question` | Turn vague topics into clear research questions |
 | `extract_paper_metadata` | Extract title, authors, abstract, keywords, etc. |
 | `write_section` | Draft paper sections (abstract/intro/methodology/results/discussion/conclusion) |
+
+### Import & Discovery Tools (NEW!)
+| Tool | Description |
+|------|-------------|
+| `import_paper_from_doi` | Import paper metadata from DOI (CrossRef API) |
+| `import_paper_from_arxiv` | Import paper from arXiv with PDF link |
+| `import_paper_from_pubmed` | Import paper from PubMed with MeSH keywords |
+| `advanced_paper_search` | Search with filters: year, citations, field, open access |
+| `get_paper_recommendations` | AI-powered paper recommendations based on content |
+| `create_research_note` | Create structured research notes with tags |
+| `list_research_notes` | List and filter research notes |
 
 ### Output Tools
 | Tool | Description |

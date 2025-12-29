@@ -2749,6 +2749,904 @@ Keep it concise (1-2 paragraphs). Write in {style} style."""
         return f"[ERROR] Error writing section: {str(e)}"
 
 
+# ============================================================================
+# ADVANCED RESEARCH TOOLS - DOI/arXiv/PubMed Import & Advanced Search
+# ============================================================================
+
+@function_tool
+def import_paper_from_doi(doi: str) -> str:
+    """
+    Import a research paper using its DOI (Digital Object Identifier).
+    Fetches metadata and attempts to download the PDF.
+
+    Args:
+        doi: The DOI of the paper (e.g., "10.1038/nature12373" or full URL)
+
+    Returns:
+        Paper metadata and download status
+    """
+    try:
+        import requests
+        import json
+
+        # Clean DOI
+        doi = doi.strip()
+        if doi.startswith("https://doi.org/"):
+            doi = doi.replace("https://doi.org/", "")
+        if doi.startswith("http://doi.org/"):
+            doi = doi.replace("http://doi.org/", "")
+        if doi.startswith("doi:"):
+            doi = doi.replace("doi:", "")
+
+        print(f"[DOI] Fetching paper: {doi}")
+
+        # Fetch metadata from CrossRef
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "ResearchAgent/1.0 (mailto:research@example.com)"
+        }
+
+        crossref_url = f"https://api.crossref.org/works/{doi}"
+        response = requests.get(crossref_url, headers=headers, timeout=30)
+
+        if response.status_code != 200:
+            return f"[ERROR] Could not fetch DOI metadata. Status: {response.status_code}"
+
+        data = response.json()
+        work = data.get("message", {})
+
+        # Extract metadata
+        title = work.get("title", ["Unknown Title"])[0] if work.get("title") else "Unknown Title"
+
+        authors = []
+        for author in work.get("author", []):
+            name = f"{author.get('given', '')} {author.get('family', '')}".strip()
+            if name:
+                authors.append(name)
+        authors_str = ", ".join(authors[:5])
+        if len(authors) > 5:
+            authors_str += f" et al. (+{len(authors)-5} more)"
+
+        # Publication info
+        container = work.get("container-title", [""])[0] if work.get("container-title") else ""
+        year = ""
+        if work.get("published-print"):
+            year = work["published-print"].get("date-parts", [[""]])[0][0]
+        elif work.get("published-online"):
+            year = work["published-online"].get("date-parts", [[""]])[0][0]
+
+        volume = work.get("volume", "")
+        issue = work.get("issue", "")
+        pages = work.get("page", "")
+
+        # Citation counts (if available)
+        citations = work.get("is-referenced-by-count", 0)
+
+        # Abstract
+        abstract = work.get("abstract", "")
+        if abstract:
+            # Clean HTML tags from abstract
+            import re
+            abstract = re.sub(r'<[^>]+>', '', abstract)
+
+        # Try to get PDF link
+        pdf_link = None
+        for link in work.get("link", []):
+            if link.get("content-type") == "application/pdf":
+                pdf_link = link.get("URL")
+                break
+
+        # Build output
+        output = []
+        output.append("=" * 80)
+        output.append("📄 PAPER IMPORTED FROM DOI")
+        output.append("=" * 80)
+        output.append(f"\n**Title:** {title}")
+        output.append(f"**Authors:** {authors_str if authors_str else 'Not available'}")
+        output.append(f"**Journal:** {container if container else 'Not available'}")
+        output.append(f"**Year:** {year if year else 'Not available'}")
+        if volume:
+            output.append(f"**Volume:** {volume}")
+        if issue:
+            output.append(f"**Issue:** {issue}")
+        if pages:
+            output.append(f"**Pages:** {pages}")
+        output.append(f"**DOI:** {doi}")
+        output.append(f"**Citations:** {citations}")
+
+        if abstract:
+            output.append(f"\n**Abstract:**\n{abstract[:1000]}{'...' if len(abstract) > 1000 else ''}")
+
+        # Generate citations
+        output.append("\n" + "=" * 40)
+        output.append("📚 CITATIONS")
+        output.append("=" * 40)
+
+        # APA
+        apa = f"{authors_str} ({year}). {title}. "
+        if container:
+            apa += f"*{container}*"
+            if volume:
+                apa += f", {volume}"
+            if issue:
+                apa += f"({issue})"
+            if pages:
+                apa += f", {pages}"
+        apa += f". https://doi.org/{doi}"
+        output.append(f"\n**APA:**\n{apa}")
+
+        # BibTeX
+        first_author = authors[0].split()[-1].lower() if authors else "unknown"
+        bibtex_key = f"{first_author}{year}"
+        bibtex = f"""
+**BibTeX:**
+```bibtex
+@article{{{bibtex_key},
+  title = {{{title}}},
+  author = {{{authors_str}}},
+  journal = {{{container}}},
+  year = {{{year}}},
+  volume = {{{volume}}},
+  number = {{{issue}}},
+  pages = {{{pages}}},
+  doi = {{{doi}}}
+}}
+```"""
+        output.append(bibtex)
+
+        if pdf_link:
+            output.append(f"\n**PDF Available:** {pdf_link}")
+            output.append("Use download_pdf tool to download this paper.")
+        else:
+            output.append("\n**PDF:** Not directly available. Try Sci-Hub or your institution's access.")
+
+        print(f"[OK] Paper metadata fetched successfully")
+        return "\n".join(output)
+
+    except Exception as e:
+        import traceback
+        print(f"Error: {traceback.format_exc()}")
+        return f"[ERROR] Error importing paper from DOI: {str(e)}"
+
+
+@function_tool
+def import_paper_from_arxiv(arxiv_id: str) -> str:
+    """
+    Import a research paper from arXiv using its ID.
+    Fetches metadata and provides PDF download link.
+
+    Args:
+        arxiv_id: The arXiv ID (e.g., "2301.07041" or "arxiv:2301.07041" or full URL)
+
+    Returns:
+        Paper metadata with PDF link
+    """
+    try:
+        import requests
+        import xml.etree.ElementTree as ET
+
+        # Clean arXiv ID
+        arxiv_id = arxiv_id.strip()
+        if "arxiv.org" in arxiv_id:
+            # Extract ID from URL
+            arxiv_id = arxiv_id.split("/")[-1]
+        if arxiv_id.startswith("arxiv:"):
+            arxiv_id = arxiv_id.replace("arxiv:", "")
+        # Remove version if present for API call
+        base_id = arxiv_id.split("v")[0] if "v" in arxiv_id else arxiv_id
+
+        print(f"[arXiv] Fetching paper: {arxiv_id}")
+
+        # Fetch from arXiv API
+        api_url = f"http://export.arxiv.org/api/query?id_list={base_id}"
+        response = requests.get(api_url, timeout=30)
+
+        if response.status_code != 200:
+            return f"[ERROR] Could not fetch arXiv paper. Status: {response.status_code}"
+
+        # Parse XML
+        root = ET.fromstring(response.content)
+        ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+
+        entry = root.find("atom:entry", ns)
+        if entry is None:
+            return f"[ERROR] Paper not found on arXiv: {arxiv_id}"
+
+        # Extract metadata
+        title = entry.find("atom:title", ns).text.strip().replace("\n", " ") if entry.find("atom:title", ns) is not None else "Unknown"
+
+        authors = []
+        for author in entry.findall("atom:author", ns):
+            name = author.find("atom:name", ns)
+            if name is not None:
+                authors.append(name.text)
+        authors_str = ", ".join(authors[:5])
+        if len(authors) > 5:
+            authors_str += f" et al. (+{len(authors)-5} more)"
+
+        abstract = entry.find("atom:summary", ns).text.strip() if entry.find("atom:summary", ns) is not None else ""
+
+        published = entry.find("atom:published", ns).text[:10] if entry.find("atom:published", ns) is not None else ""
+        year = published[:4] if published else ""
+
+        # Categories
+        categories = []
+        for cat in entry.findall("arxiv:primary_category", ns):
+            categories.append(cat.get("term", ""))
+        for cat in entry.findall("atom:category", ns):
+            term = cat.get("term", "")
+            if term and term not in categories:
+                categories.append(term)
+
+        # PDF link
+        pdf_link = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+        abs_link = f"https://arxiv.org/abs/{arxiv_id}"
+
+        # Build output
+        output = []
+        output.append("=" * 80)
+        output.append("📄 PAPER IMPORTED FROM arXiv")
+        output.append("=" * 80)
+        output.append(f"\n**Title:** {title}")
+        output.append(f"**Authors:** {authors_str}")
+        output.append(f"**arXiv ID:** {arxiv_id}")
+        output.append(f"**Published:** {published}")
+        output.append(f"**Categories:** {', '.join(categories[:5])}")
+        output.append(f"**Abstract Page:** {abs_link}")
+        output.append(f"**PDF Link:** {pdf_link}")
+
+        if abstract:
+            output.append(f"\n**Abstract:**\n{abstract[:1500]}{'...' if len(abstract) > 1500 else ''}")
+
+        # Generate citations
+        output.append("\n" + "=" * 40)
+        output.append("📚 CITATIONS")
+        output.append("=" * 40)
+
+        # APA
+        apa = f"{authors_str} ({year}). {title}. arXiv preprint arXiv:{arxiv_id}."
+        output.append(f"\n**APA:**\n{apa}")
+
+        # BibTeX
+        first_author = authors[0].split()[-1].lower() if authors else "unknown"
+        bibtex_key = f"{first_author}{year}arxiv"
+        bibtex = f"""
+**BibTeX:**
+```bibtex
+@article{{{bibtex_key},
+  title = {{{title}}},
+  author = {{{authors_str}}},
+  journal = {{arXiv preprint arXiv:{arxiv_id}}},
+  year = {{{year}}},
+  eprint = {{{arxiv_id}}},
+  archivePrefix = {{arXiv}}
+}}
+```"""
+        output.append(bibtex)
+
+        output.append(f"\n✅ **PDF Ready to Download:** Use `download_pdf` with URL: {pdf_link}")
+
+        print(f"[OK] arXiv paper metadata fetched")
+        return "\n".join(output)
+
+    except Exception as e:
+        import traceback
+        print(f"Error: {traceback.format_exc()}")
+        return f"[ERROR] Error importing paper from arXiv: {str(e)}"
+
+
+@function_tool
+def import_paper_from_pubmed(pubmed_id: str) -> str:
+    """
+    Import a research paper from PubMed using its PMID.
+    Fetches metadata from PubMed/NCBI.
+
+    Args:
+        pubmed_id: The PubMed ID (e.g., "32908859" or "PMID:32908859")
+
+    Returns:
+        Paper metadata with citation information
+    """
+    try:
+        import requests
+        import xml.etree.ElementTree as ET
+
+        # Clean PMID
+        pubmed_id = pubmed_id.strip()
+        if pubmed_id.upper().startswith("PMID:"):
+            pubmed_id = pubmed_id[5:]
+        if "pubmed" in pubmed_id.lower():
+            pubmed_id = pubmed_id.split("/")[-1]
+
+        print(f"[PubMed] Fetching paper: {pubmed_id}")
+
+        # Fetch from PubMed E-utilities
+        api_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={pubmed_id}&retmode=xml"
+        response = requests.get(api_url, timeout=30)
+
+        if response.status_code != 200:
+            return f"[ERROR] Could not fetch PubMed paper. Status: {response.status_code}"
+
+        # Parse XML
+        root = ET.fromstring(response.content)
+        article = root.find(".//Article")
+
+        if article is None:
+            return f"[ERROR] Paper not found on PubMed: {pubmed_id}"
+
+        # Title
+        title_elem = article.find(".//ArticleTitle")
+        title = title_elem.text if title_elem is not None else "Unknown"
+
+        # Authors
+        authors = []
+        for author in article.findall(".//Author"):
+            lastname = author.find("LastName")
+            forename = author.find("ForeName")
+            if lastname is not None:
+                name = lastname.text
+                if forename is not None:
+                    name = f"{forename.text} {name}"
+                authors.append(name)
+        authors_str = ", ".join(authors[:5])
+        if len(authors) > 5:
+            authors_str += f" et al. (+{len(authors)-5} more)"
+
+        # Abstract
+        abstract_elem = article.find(".//Abstract/AbstractText")
+        abstract = abstract_elem.text if abstract_elem is not None else ""
+
+        # Journal info
+        journal = root.find(".//Journal/Title")
+        journal_name = journal.text if journal is not None else ""
+
+        year_elem = root.find(".//PubDate/Year")
+        year = year_elem.text if year_elem is not None else ""
+
+        volume_elem = root.find(".//Volume")
+        volume = volume_elem.text if volume_elem is not None else ""
+
+        issue_elem = root.find(".//Issue")
+        issue = issue_elem.text if issue_elem is not None else ""
+
+        pages_elem = root.find(".//MedlinePgn")
+        pages = pages_elem.text if pages_elem is not None else ""
+
+        # DOI
+        doi_elem = root.find(".//ArticleId[@IdType='doi']")
+        doi = doi_elem.text if doi_elem is not None else ""
+
+        # Keywords/MeSH
+        keywords = []
+        for kw in root.findall(".//Keyword"):
+            if kw.text:
+                keywords.append(kw.text)
+        for mesh in root.findall(".//MeshHeading/DescriptorName"):
+            if mesh.text and mesh.text not in keywords:
+                keywords.append(mesh.text)
+
+        # Build output
+        output = []
+        output.append("=" * 80)
+        output.append("📄 PAPER IMPORTED FROM PubMed")
+        output.append("=" * 80)
+        output.append(f"\n**Title:** {title}")
+        output.append(f"**Authors:** {authors_str if authors_str else 'Not available'}")
+        output.append(f"**Journal:** {journal_name if journal_name else 'Not available'}")
+        output.append(f"**Year:** {year if year else 'Not available'}")
+        if volume:
+            output.append(f"**Volume:** {volume}")
+        if issue:
+            output.append(f"**Issue:** {issue}")
+        if pages:
+            output.append(f"**Pages:** {pages}")
+        output.append(f"**PMID:** {pubmed_id}")
+        if doi:
+            output.append(f"**DOI:** {doi}")
+
+        if keywords:
+            output.append(f"**Keywords:** {', '.join(keywords[:10])}")
+
+        output.append(f"**PubMed Link:** https://pubmed.ncbi.nlm.nih.gov/{pubmed_id}/")
+
+        if abstract:
+            output.append(f"\n**Abstract:**\n{abstract[:1500]}{'...' if len(abstract) > 1500 else ''}")
+
+        # Generate citations
+        output.append("\n" + "=" * 40)
+        output.append("📚 CITATIONS")
+        output.append("=" * 40)
+
+        # APA
+        apa = f"{authors_str} ({year}). {title}. "
+        if journal_name:
+            apa += f"*{journal_name}*"
+            if volume:
+                apa += f", {volume}"
+            if issue:
+                apa += f"({issue})"
+            if pages:
+                apa += f", {pages}"
+        if doi:
+            apa += f". https://doi.org/{doi}"
+        output.append(f"\n**APA:**\n{apa}")
+
+        # BibTeX
+        first_author = authors[0].split()[-1].lower() if authors else "unknown"
+        bibtex_key = f"{first_author}{year}pubmed"
+        bibtex = f"""
+**BibTeX:**
+```bibtex
+@article{{{bibtex_key},
+  title = {{{title}}},
+  author = {{{authors_str}}},
+  journal = {{{journal_name}}},
+  year = {{{year}}},
+  volume = {{{volume}}},
+  number = {{{issue}}},
+  pages = {{{pages}}},
+  pmid = {{{pubmed_id}}},
+  doi = {{{doi}}}
+}}
+```"""
+        output.append(bibtex)
+
+        if doi:
+            output.append(f"\n**Try PDF:** https://doi.org/{doi}")
+
+        print(f"[OK] PubMed paper metadata fetched")
+        return "\n".join(output)
+
+    except Exception as e:
+        import traceback
+        print(f"Error: {traceback.format_exc()}")
+        return f"[ERROR] Error importing paper from PubMed: {str(e)}"
+
+
+@function_tool
+def advanced_paper_search(
+    query: str,
+    year_from: int = 0,
+    year_to: int = 0,
+    min_citations: int = 0,
+    fields_of_study: str = "",
+    open_access_only: bool = False,
+    limit: int = 20
+) -> str:
+    """
+    Advanced semantic search for research papers with filters.
+
+    Args:
+        query: Search query (semantic search)
+        year_from: Filter papers from this year (e.g., 2020). 0 = no filter.
+        year_to: Filter papers up to this year (e.g., 2024). 0 = no filter.
+        min_citations: Minimum citation count filter. 0 = no filter.
+        fields_of_study: Comma-separated fields (e.g., "Computer Science,Medicine")
+        open_access_only: If True, only return open access papers
+        limit: Maximum number of results (default 20, max 100)
+
+    Returns:
+        List of papers matching criteria with metadata
+    """
+    try:
+        import requests
+
+        print(f"[SEARCH] Advanced search: {query}")
+        print(f"[FILTERS] Year: {year_from}-{year_to}, Min Citations: {min_citations}, Open Access: {open_access_only}")
+
+        # Build Semantic Scholar API query
+        base_url = "https://api.semanticscholar.org/graph/v1/paper/search"
+
+        params = {
+            "query": query,
+            "limit": min(limit, 100),
+            "fields": "title,authors,year,citationCount,abstract,openAccessPdf,venue,fieldsOfStudy,publicationDate,externalIds"
+        }
+
+        # Add year filter
+        if year_from > 0 or year_to > 0:
+            year_filter = ""
+            if year_from > 0:
+                year_filter = f"{year_from}-"
+            if year_to > 0:
+                year_filter += str(year_to)
+            elif year_from > 0:
+                year_filter += "2025"
+            params["year"] = year_filter
+
+        # Add fields of study filter
+        if fields_of_study:
+            params["fieldsOfStudy"] = fields_of_study
+
+        # Add open access filter
+        if open_access_only:
+            params["openAccessPdf"] = ""
+
+        headers = {"User-Agent": "ResearchAgent/1.0"}
+
+        response = requests.get(base_url, params=params, headers=headers, timeout=30)
+
+        if response.status_code != 200:
+            return f"[ERROR] Search failed. Status: {response.status_code}. Response: {response.text[:500]}"
+
+        data = response.json()
+        papers = data.get("data", [])
+        total = data.get("total", 0)
+
+        if not papers:
+            return f"[INFO] No papers found matching your criteria."
+
+        # Filter by citations if needed (API doesn't support this directly)
+        if min_citations > 0:
+            papers = [p for p in papers if (p.get("citationCount") or 0) >= min_citations]
+
+        # Build output
+        output = []
+        output.append("=" * 80)
+        output.append(f"🔬 ADVANCED SEARCH RESULTS")
+        output.append(f"Query: {query}")
+        output.append(f"Total Found: {total} | Showing: {len(papers)}")
+        if year_from or year_to:
+            output.append(f"Year Filter: {year_from or 'Any'} - {year_to or 'Any'}")
+        if min_citations:
+            output.append(f"Min Citations: {min_citations}")
+        if fields_of_study:
+            output.append(f"Fields: {fields_of_study}")
+        output.append("=" * 80)
+
+        for i, paper in enumerate(papers, 1):
+            title = paper.get("title", "Unknown")
+            authors = paper.get("authors", [])
+            author_names = ", ".join([a.get("name", "") for a in authors[:3]])
+            if len(authors) > 3:
+                author_names += f" et al."
+            year = paper.get("year", "N/A")
+            citations = paper.get("citationCount", 0)
+            venue = paper.get("venue", "")
+            abstract = paper.get("abstract", "")
+            fields = paper.get("fieldsOfStudy", [])
+
+            # Check for PDF
+            pdf_info = paper.get("openAccessPdf", {})
+            pdf_url = pdf_info.get("url", "") if pdf_info else ""
+
+            # External IDs
+            ext_ids = paper.get("externalIds", {})
+            doi = ext_ids.get("DOI", "")
+            arxiv = ext_ids.get("ArXiv", "")
+
+            output.append(f"\n{'─' * 60}")
+            output.append(f"📄 **{i}. {title}**")
+            output.append(f"   👥 {author_names}")
+            output.append(f"   📅 {year} | 📊 {citations} citations")
+            if venue:
+                output.append(f"   📰 {venue}")
+            if fields:
+                output.append(f"   🏷️ {', '.join(fields[:3])}")
+            if doi:
+                output.append(f"   🔗 DOI: {doi}")
+            if arxiv:
+                output.append(f"   📑 arXiv: {arxiv}")
+            if pdf_url:
+                output.append(f"   📥 PDF: {pdf_url}")
+
+            if abstract:
+                output.append(f"   📝 {abstract[:200]}...")
+
+        output.append(f"\n{'=' * 80}")
+        output.append(f"💡 Use `import_paper_from_doi` or `download_pdf` to get full papers.")
+
+        print(f"[OK] Found {len(papers)} papers")
+        return "\n".join(output)
+
+    except Exception as e:
+        import traceback
+        print(f"Error: {traceback.format_exc()}")
+        return f"[ERROR] Error in advanced search: {str(e)}"
+
+
+@function_tool
+def get_paper_recommendations(paper_content: str, num_recommendations: int = 10) -> str:
+    """
+    Get paper recommendations based on an uploaded paper or research topic.
+    Uses AI to analyze the content and find related papers.
+
+    Args:
+        paper_content: Content of the paper or research topic/abstract
+        num_recommendations: Number of recommendations to return (default 10)
+
+    Returns:
+        List of recommended papers with relevance scores
+    """
+    try:
+        from google import genai
+        import requests
+
+        gemini_key = os.getenv("GEMINI_API_KEY_5") or os.getenv("GEMINI_API_KEY_1")
+        if not gemini_key:
+            return "[ERROR] No GEMINI_API_KEY found"
+
+        client = genai.Client(api_key=gemini_key)
+
+        print(f"[RECOMMEND] Analyzing content for recommendations...")
+
+        # First, extract key concepts and search terms using AI
+        extract_prompt = f"""Analyze this research content and extract:
+1. Main topic/field
+2. Key concepts (5-7 terms)
+3. Methodology type
+4. Suggested search queries for finding related papers (3 queries)
+
+Content:
+{paper_content[:5000]}
+
+Return in this format:
+TOPIC: [main topic]
+CONCEPTS: [concept1], [concept2], ...
+METHODOLOGY: [type]
+SEARCH_QUERIES:
+- [query 1]
+- [query 2]
+- [query 3]
+"""
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=extract_prompt
+        )
+
+        analysis = response.text.strip()
+
+        # Extract search queries
+        queries = []
+        for line in analysis.split("\n"):
+            if line.strip().startswith("- "):
+                queries.append(line.strip()[2:])
+
+        if not queries:
+            # Fallback: use first 100 chars as query
+            queries = [paper_content[:100]]
+
+        # Search for related papers using Semantic Scholar
+        all_papers = []
+        seen_titles = set()
+
+        for query in queries[:3]:
+            try:
+                api_url = "https://api.semanticscholar.org/graph/v1/paper/search"
+                params = {
+                    "query": query,
+                    "limit": 15,
+                    "fields": "title,authors,year,citationCount,abstract,venue,externalIds,openAccessPdf"
+                }
+
+                resp = requests.get(api_url, params=params, timeout=20)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    for paper in data.get("data", []):
+                        title = paper.get("title", "")
+                        if title and title.lower() not in seen_titles:
+                            seen_titles.add(title.lower())
+                            all_papers.append(paper)
+            except:
+                continue
+
+        # Sort by citations and take top N
+        all_papers.sort(key=lambda x: x.get("citationCount", 0) or 0, reverse=True)
+        top_papers = all_papers[:num_recommendations]
+
+        # Build output
+        output = []
+        output.append("=" * 80)
+        output.append("🎯 PAPER RECOMMENDATIONS")
+        output.append("=" * 80)
+        output.append(f"\n**Analysis:**\n{analysis}")
+        output.append("\n" + "=" * 80)
+        output.append(f"**Recommended Papers ({len(top_papers)}):**")
+
+        for i, paper in enumerate(top_papers, 1):
+            title = paper.get("title", "Unknown")
+            authors = paper.get("authors", [])
+            author_names = ", ".join([a.get("name", "") for a in authors[:3]])
+            if len(authors) > 3:
+                author_names += " et al."
+            year = paper.get("year", "N/A")
+            citations = paper.get("citationCount", 0)
+            venue = paper.get("venue", "")
+            abstract = paper.get("abstract", "")
+
+            ext_ids = paper.get("externalIds", {})
+            doi = ext_ids.get("DOI", "")
+
+            pdf_info = paper.get("openAccessPdf", {})
+            pdf_url = pdf_info.get("url", "") if pdf_info else ""
+
+            output.append(f"\n{'─' * 60}")
+            output.append(f"📄 **{i}. {title}**")
+            output.append(f"   👥 {author_names}")
+            output.append(f"   📅 {year} | 📊 {citations} citations")
+            if venue:
+                output.append(f"   📰 {venue}")
+            if doi:
+                output.append(f"   🔗 DOI: {doi}")
+            if pdf_url:
+                output.append(f"   📥 PDF: {pdf_url}")
+            if abstract:
+                output.append(f"   📝 {abstract[:150]}...")
+
+        output.append(f"\n{'=' * 80}")
+        output.append("💡 Use DOI/arXiv import or download_pdf to get these papers.")
+
+        print(f"[OK] Generated {len(top_papers)} recommendations")
+        return "\n".join(output)
+
+    except Exception as e:
+        import traceback
+        print(f"Error: {traceback.format_exc()}")
+        return f"[ERROR] Error getting recommendations: {str(e)}"
+
+
+@function_tool
+def create_research_note(
+    title: str,
+    content: str,
+    paper_reference: str = "",
+    tags: str = "",
+    note_type: str = "general"
+) -> str:
+    """
+    Create a structured research note linked to papers.
+
+    Args:
+        title: Note title
+        content: Note content (supports markdown)
+        paper_reference: Paper title/DOI this note is about (optional)
+        tags: Comma-separated tags (e.g., "methodology,important,todo")
+        note_type: Type of note: "general", "key_finding", "methodology", "limitation", "idea", "question"
+
+    Returns:
+        Formatted research note
+    """
+    try:
+        from datetime import datetime
+        import json
+
+        print(f"[NOTE] Creating research note: {title}")
+
+        # Generate note
+        note_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        note_types_emoji = {
+            "general": "📝",
+            "key_finding": "💡",
+            "methodology": "🔬",
+            "limitation": "⚠️",
+            "idea": "🌟",
+            "question": "❓"
+        }
+
+        emoji = note_types_emoji.get(note_type, "📝")
+
+        # Build formatted note
+        output = []
+        output.append("=" * 80)
+        output.append(f"{emoji} RESEARCH NOTE")
+        output.append("=" * 80)
+        output.append(f"\n**ID:** {note_id}")
+        output.append(f"**Title:** {title}")
+        output.append(f"**Type:** {note_type.replace('_', ' ').title()}")
+        output.append(f"**Created:** {timestamp}")
+
+        if paper_reference:
+            output.append(f"**Paper Reference:** {paper_reference}")
+
+        if tags:
+            tag_list = [t.strip() for t in tags.split(",")]
+            output.append(f"**Tags:** {', '.join(['#' + t for t in tag_list])}")
+
+        output.append("\n" + "-" * 40)
+        output.append("**Content:**")
+        output.append(content)
+        output.append("-" * 40)
+
+        # Save note to JSON file
+        notes_dir = Path(__file__).parent / "research_notes"
+        notes_dir.mkdir(exist_ok=True)
+
+        note_data = {
+            "id": note_id,
+            "title": title,
+            "content": content,
+            "paper_reference": paper_reference,
+            "tags": tags.split(",") if tags else [],
+            "type": note_type,
+            "created": timestamp
+        }
+
+        note_file = notes_dir / f"{note_id}.json"
+        with open(note_file, "w", encoding="utf-8") as f:
+            json.dump(note_data, f, indent=2, ensure_ascii=False)
+
+        output.append(f"\n✅ Note saved to: {note_file}")
+
+        print(f"[OK] Note created: {note_id}")
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error creating note: {str(e)}"
+
+
+@function_tool
+def list_research_notes(filter_tag: str = "", filter_type: str = "") -> str:
+    """
+    List all research notes with optional filters.
+
+    Args:
+        filter_tag: Filter by tag (optional)
+        filter_type: Filter by note type (optional)
+
+    Returns:
+        List of all research notes
+    """
+    try:
+        import json
+        from pathlib import Path
+
+        notes_dir = Path(__file__).parent / "research_notes"
+
+        if not notes_dir.exists():
+            return "[INFO] No research notes found. Create one with create_research_note."
+
+        notes = []
+        for note_file in notes_dir.glob("*.json"):
+            with open(note_file, "r", encoding="utf-8") as f:
+                note = json.load(f)
+
+                # Apply filters
+                if filter_tag and filter_tag.lower() not in [t.lower() for t in note.get("tags", [])]:
+                    continue
+                if filter_type and note.get("type", "") != filter_type:
+                    continue
+
+                notes.append(note)
+
+        if not notes:
+            return "[INFO] No notes match your filters."
+
+        # Sort by date (newest first)
+        notes.sort(key=lambda x: x.get("created", ""), reverse=True)
+
+        output = []
+        output.append("=" * 80)
+        output.append(f"📚 RESEARCH NOTES ({len(notes)} total)")
+        output.append("=" * 80)
+
+        for note in notes:
+            note_types_emoji = {
+                "general": "📝", "key_finding": "💡", "methodology": "🔬",
+                "limitation": "⚠️", "idea": "🌟", "question": "❓"
+            }
+            emoji = note_types_emoji.get(note.get("type", "general"), "📝")
+
+            output.append(f"\n{emoji} **{note.get('title', 'Untitled')}**")
+            output.append(f"   ID: {note.get('id', 'N/A')} | Type: {note.get('type', 'general')}")
+            output.append(f"   Created: {note.get('created', 'N/A')}")
+            if note.get("paper_reference"):
+                output.append(f"   Paper: {note.get('paper_reference')}")
+            if note.get("tags"):
+                output.append(f"   Tags: {', '.join(['#' + t for t in note.get('tags', [])])}")
+            # Show preview
+            content = note.get("content", "")
+            if content:
+                output.append(f"   Preview: {content[:100]}...")
+
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"[ERROR] Error listing notes: {str(e)}"
+
+
 async def main():
     
     web_researcher: Agent = Agent(

@@ -1,0 +1,169 @@
+Since it’s for researchers, so lets think about a Research Assistant App tailored to their real needs.
+
+1. Target Users (Researchers)
+
+Academic researchers (PhD, postdocs, faculty)
+
+Industry R&D researchers
+
+Graduate & advanced undergraduate students
+
+Think-tank / policy researchers
+
+Their biggest pain points:
+
+Reading too many papers
+
+Finding relevant, credible sources
+
+Keeping track of notes, citations, and ideas
+
+Turning research into structured writing
+
+2. Core Features (High-Value for Researchers)
+A. Literature Discovery
+
+Semantic search (not just keyword-based)
+
+Filters: year, journal, methodology, citation count
+
+Paper recommendations based on:
+
+Uploaded papers
+
+Research question
+
+Reading history
+
+Nice-to-have: Alert system for new papers in a topic.
+
+B. Paper Understanding & Analysis
+
+Upload PDFs (or import from DOI / arXiv / PubMed)
+
+AI-generated:
+
+Abstract-level summary
+
+Section-by-section summary
+
+Key contributions
+
+Methodology explanation
+
+Limitations & assumptions
+
+“Explain like I’m new to this field” mode
+
+C. Cross-Paper Synthesis (Very Important)
+
+Compare multiple papers:
+
+Agreements & disagreements
+
+Methodological differences
+
+Gaps in the literature
+
+Automatically generate:
+
+Related work summaries
+
+Literature review drafts (with citations)
+
+Topic clustering across papers
+
+D. Research Question Support
+
+Refine vague research ideas into:
+
+Clear research questions
+
+Hypotheses
+
+Variables & metrics
+
+Suggest:
+
+Experimental designs
+
+Data sources
+
+Evaluation methods
+
+E. Notes, Citations & Knowledge Management
+
+Highlight & annotate PDFs
+
+Link notes across papers
+
+Auto-generate citations (BibTeX, APA, MLA)
+
+Citation-aware writing (never hallucinate references)
+
+F. Writing & Drafting Assistance
+
+Section-specific help:
+
+Abstract
+
+Introduction
+
+Related Work
+
+Methods
+
+Style control:
+
+Journal-ready
+
+Concise / detailed
+
+Field-specific tone
+
+Grammar & clarity checks (academic style)
+
+3. MVP Recommendation (Start Here)
+
+If you want a strong but realistic MVP, I’d suggest:
+
+MVP =
+
+PDF upload + paper summarization
+
+Semantic search across uploaded papers
+
+Citation-aware Q&A (“Answer only from these papers”)
+
+Notes + BibTeX export
+
+This alone is already very valuable to researchers.
+
+4. Architecture (High-Level)
+Frontend
+
+React / Next.js
+
+PDF viewer with annotation
+
+Chat-style research interface
+
+Backend
+
+API (FastAPI / Node)
+
+Document processing pipeline:
+
+PDF → text → chunks
+
+Embeddings (vector DB)
+
+LLM for reasoning & synthesis
+
+Data Layer
+
+Vector DB: FAISS / Pinecone / Weaviate
+
+Metadata DB: Postgres
+
+File storage: S3-compatible
