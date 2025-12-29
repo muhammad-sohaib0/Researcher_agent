@@ -632,13 +632,13 @@ export default function ChatPage() {
                     )}
 
                     <div className={styles.inputWrapper}>
-                        <button className={styles.uploadBtn} onClick={() => setShowUpload(true)}>
+                        <button className={styles.uploadBtn} onClick={() => setShowUpload(true)} title="Upload file">
                             ➕
                         </button>
                         <input
                             type="text"
                             className={styles.input}
-                            placeholder="Ask a research question..."
+                            placeholder="Ask a research question... (Press Enter to send)"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
@@ -648,9 +648,13 @@ export default function ChatPage() {
                             className={styles.sendBtn}
                             onClick={sendMessage}
                             disabled={loading || (!input.trim() && uploadedFiles.length === 0)}
+                            title="Send message (Enter)"
                         >
                             {loading ? <span className="spinner"></span> : "➤"}
                         </button>
+                    </div>
+                    <div className={styles.inputHint}>
+                        Press <kbd>Enter</kbd> to send, <kbd>Shift+Enter</kbd> for new line
                     </div>
                 </div>
             </div>

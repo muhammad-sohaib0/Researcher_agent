@@ -185,7 +185,7 @@ export default function Home() {
           <div className={styles.footerLogo}>
             <span>🧠</span> Research Agent
           </div>
-          <p>© 2024 Research Agent. Powered by AI.</p>
+          <p>© {new Date().getFullYear()} Research Agent. Powered by AI.</p>
         </div>
       </footer>
     </main>
