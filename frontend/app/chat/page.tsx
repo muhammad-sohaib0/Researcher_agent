@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./chat.module.css";
+import { ToastProvider, useToast } from "@/components/Toast";
+import { LoadingSpinner, ProgressBar, FileUploadProgress, PDFDownloadProgress } from "@/components/LoadingSpinner";
 
 interface Message {
     id: number;
@@ -38,6 +40,7 @@ interface SearchResult {
 export default function ChatPage() {
     const router = useRouter();
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const { success, error: showToastError } = useToast();
 
     // State
     const [chats, setChats] = useState<Chat[]>([]);
@@ -58,6 +61,9 @@ export default function ChatPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+
+    // Upload progress state
+    const [uploadProgress, setUploadProgress] = useState<{ filename: string; progress: number } | null>(null);
 
     // Shortcuts modal
     const [showShortcuts, setShowShortcuts] = useState(false);
@@ -397,6 +403,17 @@ export default function ChatPage() {
     // File upload
     const handleFileUpload = async (file: File, fileType: string) => {
         setUploadingFile(true);
+        setUploadProgress({ filename: file.name, progress: 0 });
+
+        // Simulate progress (actual progress would need XHR)
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += 10;
+            if (progress <= 90) {
+                setUploadProgress({ filename: file.name, progress });
+            }
+        }, 200);
+
         try {
             const formData = new FormData();
             formData.append("file", file);
@@ -408,15 +425,24 @@ export default function ChatPage() {
                 body: formData,
             });
 
+            clearInterval(progressInterval);
+            setUploadProgress({ filename: file.name, progress: 100 });
+
             if (res.ok) {
                 const uploaded = await res.json();
                 setUploadedFiles([...uploadedFiles, uploaded]);
                 setShowUpload(false);
+                success(`File "${file.name}" uploaded successfully`);
+            } else {
+                showToastError("Failed to upload file");
             }
         } catch (err) {
+            clearInterval(progressInterval);
             console.error("Failed to upload file:", err);
+            showToastError("Failed to upload file. Please try again.");
         } finally {
             setUploadingFile(false);
+            setTimeout(() => setUploadProgress(null), 500);
         }
     };
 
@@ -494,6 +520,7 @@ export default function ChatPage() {
     };
 
     return (
+        <ToastProvider>
         <main className={styles.main}>
             {/* Error Toast */}
             {error && (
@@ -817,10 +844,11 @@ export default function ChatPage() {
                                 </label>
                             ))}
                         </div>
-                        {uploadingFile && (
-                            <div className={styles.uploadProgress}>
-                                <span className="spinner"></span> Uploading...
-                            </div>
+                        {uploadingFile && uploadProgress && (
+                            <FileUploadProgress
+                                filename={uploadProgress.filename}
+                                progress={uploadProgress.progress}
+                            />
                         )}
                     </div>
                 </div>
@@ -860,5 +888,6 @@ export default function ChatPage() {
                 </div>
             )}
         </main>
+        </ToastProvider>
     );
 }

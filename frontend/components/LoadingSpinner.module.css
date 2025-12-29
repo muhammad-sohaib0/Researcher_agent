@@ -10,8 +10,8 @@
 
 /* Spinner */
 .spinner {
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #007bff;
+  border: 3px solid var(--border-subtle, #f3f3f3);
+  border-top: 3px solid var(--accent, #007bff);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -44,13 +44,13 @@
 
 .text {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary, #666);
 }
 
 /* Progress Bar */
 .progressContainer {
   width: 100%;
-  background-color: #e9ecef;
+  background-color: var(--bg-surface, #e9ecef);
   border-radius: 10px;
   overflow: hidden;
   position: relative;
@@ -81,16 +81,16 @@
   transform: translateY(-50%);
   font-size: 12px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 /* Skeleton Loading */
 .skeleton {
   background: linear-gradient(
     90deg,
-    #f0f0f0 25%,
-    #e0e0e0 50%,
-    #f0f0f0 75%
+    var(--bg-elevated, #f0f0f0) 25%,
+    var(--bg-surface, #e0e0e0) 50%,
+    var(--bg-elevated, #f0f0f0) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
@@ -147,16 +147,17 @@
 .skeletonInput {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-subtle, #eee);
 }
 
 /* File Upload Progress */
 .fileUploadProgress {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: var(--bg-surface, #f8f9fa);
+  border: 1px solid var(--border-medium, #dee2e6);
   border-radius: 8px;
   padding: 16px;
   min-width: 300px;
+  margin-top: 16px;
 }
 
 .fileInfo {
@@ -174,7 +175,7 @@
   flex: 1;
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary, #333);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -183,7 +184,7 @@
 .cancelBtn {
   background: none;
   border: none;
-  color: #999;
+  color: var(--text-muted, #999);
   font-size: 14px;
   cursor: pointer;
   padding: 4px;
@@ -193,7 +194,7 @@
 
 .cancelBtn:hover {
   background-color: rgba(0, 0, 0, 0.1);
-  color: #666;
+  color: var(--text-secondary, #666);
 }
 
 .uploadStats {
@@ -201,17 +202,17 @@
   justify-content: space-between;
   margin-top: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary, #666);
 }
 
 .uploadSpeed {
-  color: #28a745;
+  color: #22c55e;
 }
 
 /* PDF Download Progress */
 .pdfDownloadProgress {
-  background: #fff;
-  border: 1px solid #dee2e6;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-medium, #dee2e6);
   border-radius: 8px;
   padding: 16px;
   min-width: 320px;
@@ -233,7 +234,7 @@
   flex: 1;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .downloadFileInfo {
@@ -245,13 +246,13 @@
 
 .fileName {
   font-size: 14px;
-  color: #555;
+  color: var(--text-secondary, #555);
 }
 
 .pageInfo {
   font-size: 12px;
-  color: #666;
-  background: #f0f0f0;
+  color: var(--text-muted, #666);
+  background: var(--bg-surface, #f0f0f0);
   padding: 4px 8px;
   border-radius: 4px;
 }
