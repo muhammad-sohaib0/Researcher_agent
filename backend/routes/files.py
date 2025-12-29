@@ -95,8 +95,9 @@ async def upload_file(
     except Exception as e:
         extracted_text = f"Error extracting text: {str(e)}"
     
-    # Save to database
+    # Save to database with user_id
     uploaded_file = UploadedFile(
+        user_id=current_user.id,  # Security: track file owner
         filename=unique_filename,
         original_filename=file.filename,
         file_type=file_type,
@@ -118,8 +119,11 @@ async def get_file(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get file info."""
-    file = db.query(UploadedFile).filter(UploadedFile.id == file_id).first()
+    """Get file info - only owner can access."""
+    file = db.query(UploadedFile).filter(
+        UploadedFile.id == file_id,
+        UploadedFile.user_id == current_user.id
+    ).first()
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
     return file
@@ -131,8 +135,11 @@ async def delete_file(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a file."""
-    file = db.query(UploadedFile).filter(UploadedFile.id == file_id).first()
+    """Delete a file - only owner can delete."""
+    file = db.query(UploadedFile).filter(
+        UploadedFile.id == file_id,
+        UploadedFile.user_id == current_user.id
+    ).first()
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
     

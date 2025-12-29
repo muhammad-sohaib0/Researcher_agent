@@ -79,6 +79,74 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor.close()
 
 
+def init_fts5(db_manager) -> None:
+    """Initialize FTS5 virtual table for full-text search on messages."""
+    if "sqlite" not in str(engine.url):
+        return  # FTS5 is SQLite-only
+
+    try:
+        # Create FTS5 virtual table for messages
+        db_manager.execute_raw_sql("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+                content,
+                content= messages,
+                content_rowid=id,
+                tokenize='porter unicode61'
+            )
+        """)
+        logger.info("FTS5 messages_fts table created/verified")
+    except Exception as e:
+        logger.warning(f"FTS5 initialization skipped: {e}")
+
+
+# Initialize FTS5 on module load
+from core.logging import get_logger
+logger = get_logger("database")
+
+# Import Base for table access
+from models import Message
+
+# Create FTS5 trigger to keep virtual table in sync
+@event.listens_for(Message.__table__, "after_create")
+def create_fts5_trigger(target, connection, **kw):
+    """Create FTS5 triggers when messages table is created."""
+    if "sqlite" in str(engine.url):
+        try:
+            connection.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+                    content,
+                    content= messages,
+                    content_rowid=id,
+                    tokenize='porter unicode61'
+                )
+            """)
+            # Insert trigger
+            connection.execute("""
+                CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages
+                BEGIN
+                    INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+                END
+            """)
+            # Update trigger
+            connection.execute("""
+                CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages
+                BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id);
+                    INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+                END
+            """)
+            # Delete trigger
+            connection.execute("""
+                CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages
+                BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id);
+                END
+            """)
+            logger.info("FTS5 triggers created")
+        except Exception as e:
+            logger.warning(f"FTS5 triggers creation skipped: {e}")
+
+
 class DatabaseManager:
     """Database manager for advanced operations."""
 

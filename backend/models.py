@@ -72,6 +72,7 @@ class UploadedFile(Base):
     __tablename__ = "uploaded_files"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Security: track file owner
     message_id = Column(Integer, ForeignKey("messages.id"), nullable=True)
     filename = Column(String(255), nullable=False)
     original_filename = Column(String(255), nullable=False)
@@ -83,11 +84,13 @@ class UploadedFile(Base):
 
     # Indexes
     __table_args__ = (
+        Index("ix_uploaded_files_user", "user_id"),
         Index("ix_uploaded_files_message", "message_id"),
         Index("ix_uploaded_files_type", "file_type"),
     )
 
     # Relationships
+    user = relationship("User")
     message = relationship("Message", back_populates="files")
 
 

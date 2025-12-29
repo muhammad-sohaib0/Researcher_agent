@@ -53,6 +53,16 @@ class ChatResponse(BaseModel):
 
 class ChatListResponse(BaseModel):
     chats: List[ChatResponse]
+    page: int
+    limit: int
+    total: int
+
+    @property
+    def total_pages(self) -> int:
+        return (self.total + self.limit - 1) // self.limit
+
+    class Config:
+        from_attributes = True
 
 
 # ============ Message Schemas ============

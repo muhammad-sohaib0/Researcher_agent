@@ -56,21 +56,16 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 def decode_token(token: str) -> Optional[int]:
     """Decode a JWT token and return user_id."""
     try:
-        print(f"DEBUG: Decoding token with SECRET_KEY: {SECRET_KEY[:20]}...")
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(f"DEBUG: Payload: {payload}")
         user_id_str = payload.get("sub")
         if user_id_str is None:
-            print("DEBUG: user_id is None in payload")
             return None
         # Convert string to int
         user_id = int(user_id_str)
         return user_id
-    except JWTError as e:
-        print(f"DEBUG: JWTError: {e}")
+    except JWTError:
         return None
-    except (ValueError, TypeError) as e:
-        print(f"DEBUG: Conversion error: {e}")
+    except (ValueError, TypeError):
         return None
 
 

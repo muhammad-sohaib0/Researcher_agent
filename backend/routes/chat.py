@@ -21,12 +21,16 @@ router = APIRouter()
 
 @router.get("/list", response_model=ChatListResponse)
 async def get_chats(
+    page: int = 1,
+    limit: int = 50,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all chats for current user."""
-    chats = db.query(Chat).filter(Chat.user_id == current_user.id).order_by(desc(Chat.updated_at)).all()
-    return ChatListResponse(chats=chats)
+    """Get paginated chats for current user."""
+    offset = (page - 1) * limit
+    chats = db.query(Chat).filter(Chat.user_id == current_user.id).order_by(desc(Chat.updated_at)).offset(offset).limit(limit).all()
+    total = db.query(Chat).filter(Chat.user_id == current_user.id).count()
+    return ChatListResponse(chats=chats, page=page, limit=limit, total=total)
 
 
 @router.post("/new", response_model=ChatResponse)
