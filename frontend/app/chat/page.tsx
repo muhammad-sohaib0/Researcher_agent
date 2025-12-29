@@ -40,8 +40,18 @@ export default function ChatPage() {
     const [uploadingFile, setUploadingFile] = useState(false);
     const [expandedThinking, setExpandedThinking] = useState<number | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
 
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+    // Auto-dismiss error after 5 seconds
+    useEffect(() => {
+        if (error) {
+            const timer = setTimeout(() => setError(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [error]);
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
     // Extract downloadable files from message content (PDF, Word, Audio, etc.)
@@ -108,15 +118,22 @@ export default function ChatPage() {
     // Fetch chats
     const fetchChats = async () => {
         try {
+            setIsInitialLoading(true);
             const res = await fetch(`${API_URL}/api/chat/list`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
                 const data = await res.json();
                 setChats(data.chats);
+            } else if (res.status === 401) {
+                localStorage.removeItem("token");
+                router.push("/auth");
             }
         } catch (err) {
             console.error("Failed to fetch chats:", err);
+            setError("Failed to load chats. Please refresh the page.");
+        } finally {
+            setIsInitialLoading(false);
         }
     };
 
@@ -391,6 +408,14 @@ export default function ChatPage() {
 
     return (
         <main className={styles.main}>
+            {/* Error Toast */}
+            {error && (
+                <div className={styles.errorToast}>
+                    <span>⚠️ {error}</span>
+                    <button onClick={() => setError(null)}>✕</button>
+                </div>
+            )}
+
             {/* Sidebar */}
             <aside className={`${styles.sidebar} ${sidebarOpen ? styles.open : ""}`}>
                 <div className={styles.sidebarHeader}>
@@ -408,19 +433,33 @@ export default function ChatPage() {
                 </button>
 
                 <div className={styles.chatList}>
-                    {chats.map((chat) => (
-                        <div
-                            key={chat.id}
-                            className={`${styles.chatItem} ${currentChatId === chat.id ? styles.active : ""}`}
-                            onClick={() => loadChat(chat.id)}
-                        >
-                            <span className={styles.chatIcon}>💬</span>
-                            <span className={styles.chatTitle}>{chat.title}</span>
-                            <button className={styles.deleteBtn} onClick={(e) => deleteChat(chat.id, e)}>
-                                ✕
-                            </button>
+                    {isInitialLoading ? (
+                        // Loading skeletons
+                        <>
+                            <div className={`${styles.skeleton} ${styles.chatSkeleton}`}></div>
+                            <div className={`${styles.skeleton} ${styles.chatSkeleton}`}></div>
+                            <div className={`${styles.skeleton} ${styles.chatSkeleton}`}></div>
+                        </>
+                    ) : chats.length === 0 ? (
+                        <div className={styles.noChatMessage}>
+                            <p>No chats yet</p>
+                            <small>Click "New Chat" to start</small>
                         </div>
-                    ))}
+                    ) : (
+                        chats.map((chat) => (
+                            <div
+                                key={chat.id}
+                                className={`${styles.chatItem} ${currentChatId === chat.id ? styles.active : ""}`}
+                                onClick={() => loadChat(chat.id)}
+                            >
+                                <span className={styles.chatIcon}>💬</span>
+                                <span className={styles.chatTitle}>{chat.title}</span>
+                                <button className={styles.deleteBtn} onClick={(e) => deleteChat(chat.id, e)}>
+                                    ✕
+                                </button>
+                            </div>
+                        ))
+                    )}
                 </div>
 
                 <div className={styles.sidebarFooter}>
