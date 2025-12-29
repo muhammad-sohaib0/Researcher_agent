@@ -525,8 +525,8 @@ export default function ChatPage() {
             {/* Error Toast */}
             {error && (
                 <div className={styles.errorToast}>
-                    <span>Warning: {error}</span>
-                    <button onClick={() => setError(null)}>Close</button>
+                    <span>⚠️ {error}</span>
+                    <button onClick={() => setError(null)}>✕</button>
                 </div>
             )}
 
@@ -534,7 +534,7 @@ export default function ChatPage() {
             <aside className={`${styles.sidebar} ${sidebarOpen ? styles.open : ""}`}>
                 <div className={styles.sidebarHeader}>
                     <div className={styles.logo}>
-                        <span>Brain</span>
+                        <span>🧠</span>
                         <span>Research Agent</span>
                     </div>
                     <div className={styles.sidebarActions}>
@@ -543,16 +543,16 @@ export default function ChatPage() {
                             onClick={() => setShowSearch(true)}
                             title="Search chats (Ctrl+/)"
                         >
-                            Search
+                            🔍
                         </button>
                         <button className={styles.toggleSidebar} onClick={() => setSidebarOpen(!sidebarOpen)}>
-                            Menu
+                            ☰
                         </button>
                     </div>
                 </div>
 
                 <button className={styles.newChatBtn} onClick={createNewChat}>
-                    New Chat
+                    ➕ New Chat
                 </button>
 
                 <div className={styles.chatList}>
@@ -574,10 +574,10 @@ export default function ChatPage() {
                                 className={`${styles.chatItem} ${currentChatId === chat.id ? styles.active : ""}`}
                                 onClick={() => loadChat(chat.id)}
                             >
-                                <span className={styles.chatIcon}>Chat</span>
+                                <span className={styles.chatIcon}>💬</span>
                                 <span className={styles.chatTitle}>{chat.title}</span>
                                 <button className={styles.deleteBtn} onClick={(e) => deleteChat(chat.id, e)}>
-                                    Delete
+                                    ✕
                                 </button>
                             </div>
                         ))
@@ -586,10 +586,10 @@ export default function ChatPage() {
 
                 <div className={styles.sidebarFooter}>
                     <button className={styles.shortcutsBtn} onClick={() => setShowShortcuts(true)}>
-                        Keyboard Shortcuts
+                        ⌨️ Shortcuts
                     </button>
                     <button className={styles.logoutBtn} onClick={handleLogout}>
-                        Logout
+                        🚪 Logout
                     </button>
                 </div>
             </aside>
@@ -601,7 +601,7 @@ export default function ChatPage() {
                         className={styles.floatingToggle}
                         onClick={() => setSidebarOpen(true)}
                     >
-                        Menu
+                        ☰
                     </button>
                 )}
 
@@ -609,7 +609,7 @@ export default function ChatPage() {
                 <div className={styles.messages}>
                     {messages.length === 0 ? (
                         <div className={styles.emptyState}>
-                            <div className={styles.emptyIcon}>Brain</div>
+                            <div className={styles.emptyIcon}>🧠</div>
                             <h2>Research Agent</h2>
                             <p>Your AI-powered research assistant. Try these features:</p>
                             <div className={styles.suggestions}>
@@ -637,7 +637,7 @@ export default function ChatPage() {
                         messages.map((msg) => (
                             <div key={msg.id} className={`${styles.message} ${styles[msg.role]}`}>
                                 <div className={styles.messageAvatar}>
-                                    {msg.role === "user" ? "User" : "AI"}
+                                    {msg.role === "user" ? "👤" : "🧠"}
                                 </div>
                                 <div className={styles.messageContent}>
                                     {msg.role === "assistant" && msg.toolOutputs && msg.toolOutputs.length > 0 && (
@@ -646,8 +646,8 @@ export default function ChatPage() {
                                                 className={styles.thinkingToggle}
                                                 onClick={() => setExpandedThinking(expandedThinking === msg.id ? null : msg.id)}
                                             >
-                                                Show Thinking ({msg.toolOutputs.length} steps)
-                                                <span className={expandedThinking === msg.id ? styles.expanded : ""}>V</span>
+                                                🤔 Show Thinking ({msg.toolOutputs.length} steps)
+                                                <span className={expandedThinking === msg.id ? styles.expanded : ""}>▼</span>
                                             </button>
                                             {expandedThinking === msg.id && (
                                                 <div className={styles.thinkingContent}>
@@ -665,7 +665,7 @@ export default function ChatPage() {
                                         <div className={styles.attachedFiles}>
                                             {msg.files.map((file, i) => (
                                                 <span key={i} className={styles.fileChip}>
-                                                    File {file.name}
+                                                    📎 {file.name}
                                                 </span>
                                             ))}
                                         </div>
@@ -710,7 +710,7 @@ export default function ChatPage() {
                     )}
                     {loading && (
                         <div className={`${styles.message} ${styles.assistant}`}>
-                            <div className={styles.messageAvatar}>AI</div>
+                            <div className={styles.messageAvatar}>🧠</div>
                             <div className={styles.messageContent}>
                                 <div className={styles.typing}>
                                     <span></span><span></span><span></span>
@@ -727,8 +727,8 @@ export default function ChatPage() {
                         <div className={styles.uploadedPreview}>
                             {uploadedFiles.map((file) => (
                                 <span key={file.id} className={styles.fileChip}>
-                                    File {file.original_filename}
-                                    <button onClick={() => setUploadedFiles(uploadedFiles.filter(f => f.id !== file.id))}>X</button>
+                                    📎 {file.original_filename}
+                                    <button onClick={() => setUploadedFiles(uploadedFiles.filter(f => f.id !== file.id))}>✕</button>
                                 </span>
                             ))}
                         </div>
@@ -736,7 +736,7 @@ export default function ChatPage() {
 
                     <div className={styles.inputWrapper}>
                         <button className={styles.uploadBtn} onClick={() => setShowUpload(true)} title="Upload file">
-                            +
+                            📎
                         </button>
                         <input
                             ref={inputRef}
@@ -759,7 +759,7 @@ export default function ChatPage() {
                             disabled={loading || (!input.trim() && uploadedFiles.length === 0)}
                             title="Send message (Enter)"
                         >
-                            {loading ? "..." : "Send"}
+                            {loading ? "⏳" : "➤"}
                         </button>
                     </div>
                     <div className={styles.inputHint}>
@@ -773,8 +773,8 @@ export default function ChatPage() {
                 <div className={styles.modalOverlay} onClick={() => setShowSearch(false)}>
                     <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
                         <div className={styles.modalHeader}>
-                            <h3>Search Chats</h3>
-                            <button onClick={() => setShowSearch(false)}>X</button>
+                            <h3>🔍 Search Chats</h3>
+                            <button onClick={() => setShowSearch(false)}>✕</button>
                         </div>
                         <div className={styles.searchContent}>
                             <input
@@ -816,16 +816,16 @@ export default function ChatPage() {
                 <div className={styles.modalOverlay} onClick={() => setShowUpload(false)}>
                     <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
                         <div className={styles.modalHeader}>
-                            <h3>Upload File</h3>
-                            <button onClick={() => setShowUpload(false)}>X</button>
+                            <h3>📤 Upload File</h3>
+                            <button onClick={() => setShowUpload(false)}>✕</button>
                         </div>
                         <div className={styles.uploadOptions}>
                             {[
-                                { type: "pdf", icon: "PDF", label: "PDF", accept: ".pdf" },
-                                { type: "word", icon: "DOC", label: "Word", accept: ".doc,.docx" },
-                                { type: "pptx", icon: "PPT", label: "PowerPoint", accept: ".ppt,.pptx" },
-                                { type: "image", icon: "IMG", label: "Image", accept: ".png,.jpg,.jpeg,.gif,.webp" },
-                                { type: "audio", icon: "AUD", label: "Audio", accept: ".mp3,.wav,.m4a,.ogg" },
+                                { type: "pdf", icon: "📄", label: "PDF", accept: ".pdf" },
+                                { type: "word", icon: "📝", label: "Word", accept: ".doc,.docx" },
+                                { type: "pptx", icon: "📊", label: "PowerPoint", accept: ".ppt,.pptx" },
+                                { type: "image", icon: "🖼️", label: "Image", accept: ".png,.jpg,.jpeg,.gif,.webp" },
+                                { type: "audio", icon: "🔊", label: "Audio", accept: ".mp3,.wav,.m4a,.ogg" },
                             ].map((opt) => (
                                 <label key={opt.type} className={styles.uploadOption}>
                                     <input
@@ -859,8 +859,8 @@ export default function ChatPage() {
                 <div className={styles.modalOverlay} onClick={() => setShowShortcuts(false)}>
                     <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
                         <div className={styles.modalHeader}>
-                            <h3>Keyboard Shortcuts</h3>
-                            <button onClick={() => setShowShortcuts(false)}>X</button>
+                            <h3>⌨️ Keyboard Shortcuts</h3>
+                            <button onClick={() => setShowShortcuts(false)}>✕</button>
                         </div>
                         <div className={styles.shortcutsList}>
                             <div className={styles.shortcutItem}>
